@@ -1,6 +1,57 @@
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/v1';
-
 export class ApiService {
+  public static getApiBaseUrl(): string {
+    const isProductionWeb =
+      import.meta.env.PROD &&
+      typeof window !== 'undefined' &&
+      window.location.hostname !== 'localhost' &&
+      window.location.hostname !== '127.0.0.1';
+
+    const custom = localStorage.getItem('guideme_custom_api_url');
+    if (custom && custom.trim()) {
+      const trimmed = custom.trim().replace(/\/+$/, '');
+      if (
+        isProductionWeb &&
+        (trimmed.includes('localhost') ||
+          trimmed.includes('127.0.0.1') ||
+          trimmed.includes('192.168.') ||
+          trimmed.includes('10.') ||
+          trimmed.includes('172.'))
+      ) {
+        localStorage.removeItem('guideme_custom_api_url');
+      } else {
+        return trimmed;
+      }
+    }
+    return (import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/v1').replace(/\/+$/, '');
+  }
+
+  public static setCustomApiBaseUrl(url: string): void {
+    if (!url || !url.trim()) {
+      localStorage.removeItem('guideme_custom_api_url');
+    } else {
+      let cleaned = url.trim().replace(/\/+$/, '');
+      if (!cleaned.endsWith('/api/v1')) {
+        cleaned += '/api/v1';
+      }
+      localStorage.setItem('guideme_custom_api_url', cleaned);
+    }
+  }
+
+  public static async testConnection(url?: string): Promise<{ ok: boolean; message: string }> {
+    try {
+      const base = (url || this.getApiBaseUrl()).replace(/\/+$/, '');
+      const healthUrl = base.replace(/\/api\/v1$/, '') + '/health';
+      const res = await fetch(healthUrl, { method: 'GET', signal: AbortSignal.timeout(4000) });
+      if (res.ok) {
+        const data = await res.json().catch(() => ({}));
+        return { ok: true, message: `Connected to ${data.service || 'GUIDE ME'} (${data.status || 'healthy'})` };
+      }
+      return { ok: false, message: `Server responded with status ${res.status}` };
+    } catch (e: any) {
+      return { ok: false, message: e?.message || 'Server unreachable. Check IP and Wi-Fi.' };
+    }
+  }
+
   private static getToken(): string | null {
     return localStorage.getItem('guideme_token');
   }
@@ -26,7 +77,8 @@ export class ApiService {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    const response = await fetch(`${API_BASE}${endpoint}`, {
+    const apiBase = this.getApiBaseUrl();
+    const response = await fetch(`${apiBase}${endpoint}`, {
       ...options,
       headers,
     });
@@ -207,7 +259,8 @@ export class ApiService {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    const response = await fetch(`${API_BASE}/companion/chat/stream`, {
+    const apiBase = this.getApiBaseUrl();
+    const response = await fetch(`${apiBase}/companion/chat/stream`, {
       method: 'POST',
       headers,
       body: JSON.stringify({ content, conversation_id: conversationId }),

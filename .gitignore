@@ -81,6 +81,9 @@ logs/
 Thumbs.db
 desktop.ini
 
-# Output archives
+# Output archives & binaries
 *.zip
 !GUIDE ME - FINAL.zip
+*.apk
+*.exe
+

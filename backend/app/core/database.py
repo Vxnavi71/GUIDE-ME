@@ -10,16 +10,29 @@ logger = logging.getLogger("guideme.database")
 
 Base = declarative_base()
 
+from sqlalchemy.engine.url import make_url
+
 # Determine effective database URL based on environment and connectivity
 _effective_async_url = settings.DATABASE_URL
 _effective_sync_url = settings.DATABASE_URL_SYNC
 
-if settings.DATABASE_FALLBACK_SQLITE:
+# Automatically synchronize sync URL if async URL points to a remote PostgreSQL server
+if "localhost:5432" in _effective_sync_url and "localhost" not in _effective_async_url:
+    try:
+        _parsed = make_url(_effective_async_url)
+        _effective_sync_url = _parsed.set(drivername="postgresql").render_as_string(hide_password=False)
+    except Exception as e:
+        logger.debug(f"Could not auto-derive sync database URL: {e}")
+
+is_production = settings.ENVIRONMENT.lower() in ("production", "prod")
+allow_sqlite_fallback = settings.DATABASE_FALLBACK_SQLITE and not is_production
+
+if allow_sqlite_fallback:
     # Test if PostgreSQL is directly reachable
     try:
         test_engine = create_engine(
-            settings.DATABASE_URL_SYNC,
-            connect_args={"connect_timeout": 2} if "postgresql" in settings.DATABASE_URL_SYNC else {},
+            _effective_sync_url,
+            connect_args={"connect_timeout": 2} if "postgresql" in _effective_sync_url else {},
         )
         with test_engine.connect():
             pass
@@ -30,6 +43,11 @@ if settings.DATABASE_FALLBACK_SQLITE:
         )
         _effective_async_url = settings.DATABASE_SQLITE_URL
         _effective_sync_url = settings.DATABASE_SQLITE_URL_SYNC
+else:
+    if is_production:
+        logger.info("Production environment detected: SQLite fallback is strictly disabled.")
+    else:
+        logger.info("PostgreSQL SQLite fallback disabled by configuration.")
 
 # Asynchronous engine & sessionmaker for FastAPI routes
 async_engine = create_async_engine(

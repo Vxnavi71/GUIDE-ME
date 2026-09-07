@@ -24,20 +24,58 @@ class Settings(BaseSettings):
     DATABASE_SQLITE_URL: str = "sqlite+aiosqlite:///./guideme_local.db"
     DATABASE_SQLITE_URL_SYNC: str = "sqlite:///./guideme_local.db"
 
+    @field_validator("DATABASE_URL", mode="before")
+    @classmethod
+    def assemble_database_url(cls, v: str) -> str:
+        if isinstance(v, str) and v.strip():
+            v = v.strip()
+            if v.startswith("postgres://"):
+                v = v.replace("postgres://", "postgresql://", 1)
+            try:
+                from sqlalchemy.engine.url import make_url
+                u = make_url(v)
+                query = dict(u.query)
+                if "sslmode" in query:
+                    query["ssl"] = query.pop("sslmode")
+                query.pop("channel_binding", None)
+                v = u.set(drivername="postgresql+asyncpg", query=query).render_as_string(hide_password=False)
+            except Exception:
+                if v.startswith("postgresql://") and not v.startswith("postgresql+"):
+                    v = v.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return v
+
+    @field_validator("DATABASE_URL_SYNC", mode="before")
+    @classmethod
+    def assemble_sync_database_url(cls, v: str) -> str:
+        if isinstance(v, str) and v.strip():
+            v = v.strip()
+            if v.startswith("postgres://"):
+                v = v.replace("postgres://", "postgresql://", 1)
+            elif v.startswith("postgresql+asyncpg://"):
+                v = v.replace("postgresql+asyncpg://", "postgresql://", 1)
+        return v
+
     # CORS
     CORS_ORIGINS: List[str] = [
         "http://localhost:5173",
         "http://127.0.0.1:5173",
         "http://localhost:3000",
         "http://127.0.0.1:3000",
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+        "capacitor://localhost",
+        "http://localhost",
+        "https://localhost",
     ]
 
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
     def assemble_cors_origins(cls, v: Union[str, List[str]]) -> List[str]:
         if isinstance(v, str) and not v.startswith("["):
-            return [i.strip() for i in v.split(",")]
-        elif isinstance(v, (list, str)):
+            return [i.strip() for i in v.split(",") if i.strip() and i.strip() != "*"]
+        elif isinstance(v, list):
+            return [i.strip() for i in v if isinstance(i, str) and i.strip() and i.strip() != "*"]
+        elif isinstance(v, str):
             return v
         raise ValueError(v)
 
