@@ -1,0 +1,86 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments (Strictly disallowed in repo)
+venv/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Node dependencies & frontend builds
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+.pnp
+.pnp.js
+
+# Testing and coverage
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+
+# Local databases and logs
+*.sqlite
+*.sqlite3
+*.db
+*.log
+logs/
+
+# IDE / Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*.sublime-project
+*.sublime-workspace
+
+# Environment and Secrets (Never commit credentials)
+.env
+.env.local
+.env.*.local
+
+# OS generated
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Output archives
+*.zip
+!GUIDE ME - FINAL.zip
