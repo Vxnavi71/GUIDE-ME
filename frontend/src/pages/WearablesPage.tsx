@@ -16,17 +16,44 @@ import {
   Compass,
   PlusCircle,
   HelpCircle,
+  Bluetooth,
+  ExternalLink,
 } from 'lucide-react';
 import { ApiService } from '../services/api';
 import { CircularProgressRing } from '../components/CircularProgressRing';
+import { NativeBridgeService } from '../services/nativeBridge';
+import { useToast } from '../components/ToastNotification';
 
 export const WearablesPage: React.FC = () => {
+  const { showToast } = useToast();
+
   const [activeTab, setActiveTab] = useState<'wearables' | 'sleep'>('wearables');
   const [metrics, setMetrics] = useState<any>(null);
   const [sleepSummary, setSleepSummary] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [showLogModal, setShowLogModal] = useState(false);
+
+  // Health Connect & BLE State
+  const [healthConnectInfo, setHealthConnectInfo] = useState<{
+    available: boolean;
+    status: string;
+    provider: string;
+    supported_metrics?: string[];
+  }>({
+    available: false,
+    status: 'checking',
+    provider: 'Google Health Connect',
+    supported_metrics: ['steps', 'heart_rate', 'sleep', 'active_calories'],
+  });
+  const [bleDevice, setBleDevice] = useState<{ name: string; id: string } | null>(null);
+  const [connectedProviders, setConnectedProviders] = useState<Record<string, boolean>>({
+    google_health_connect: false,
+    bluetooth_le: false,
+    fitbit: false,
+    apple_health: false,
+    mock: false,
+  });
 
   // Manual logging modal form state
   const [manualSleep, setManualSleep] = useState(7.5);
@@ -40,7 +67,24 @@ export const WearablesPage: React.FC = () => {
 
   useEffect(() => {
     loadData();
+    checkProvidersStatus();
   }, []);
+
+  const checkProvidersStatus = async () => {
+    try {
+      const hc = await NativeBridgeService.checkHealthConnect();
+      setHealthConnectInfo(hc);
+      if (hc.available) {
+        setConnectedProviders((prev) => ({ ...prev, google_health_connect: true }));
+      }
+      const activeConns = await ApiService.getWearableStatus().catch(() => []);
+      if (activeConns && activeConns.length > 0) {
+        setConnectedProviders((prev) => ({ ...prev, google_health_connect: true }));
+      }
+    } catch (e) {
+      console.warn('Error checking wearable status:', e);
+    }
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -64,6 +108,85 @@ export const WearablesPage: React.FC = () => {
     }
   };
 
+  const handleSyncHealthConnect = async () => {
+    setSyncing(true);
+    try {
+      if (NativeBridgeService.isNativeAndroid()) {
+        await NativeBridgeService.syncHealthConnect();
+        const updated = await ApiService.syncWearables();
+        setMetrics(updated);
+        const updatedSleep = await ApiService.getSleepSummary();
+        setSleepSummary(updatedSleep);
+        setConnectedProviders((prev) => ({ ...prev, google_health_connect: true }));
+        showToast('Google Health Connect telemetry synchronized successfully!', 'success');
+      } else {
+        const updated = await ApiService.syncWearables();
+        setMetrics(updated);
+        const updatedSleep = await ApiService.getSleepSummary();
+        setSleepSummary(updatedSleep);
+        showToast('Wearable metrics synchronized', 'success');
+      }
+    } catch (e: any) {
+      showToast('Health Connect sync failed: ' + (e.message || 'Unknown error'), 'error');
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const handleConnectBluetooth = async () => {
+    try {
+      showToast('Scanning for nearby Bluetooth Smartwatches & Heart Rate sensors...', 'info');
+      const device = await NativeBridgeService.requestBluetoothDevice();
+      setBleDevice(device);
+      await ApiService.pairWearableDevice({
+        provider: 'bluetooth_le',
+        device_name: device.name,
+        device_id: device.id,
+      });
+      setConnectedProviders((prev) => ({ ...prev, bluetooth_le: true }));
+      showToast(`Connected to ${device.name} via Bluetooth LE!`, 'success');
+    } catch (e: any) {
+      if (!e.message?.includes('cancelled') && !e.message?.includes('canceled')) {
+        showToast(e.message || 'Bluetooth pairing was not completed.', 'warning');
+      }
+    }
+  };
+
+  const handleToggleProvider = async (providerId: string, providerName: string) => {
+    if (providerId === 'google_health_connect') {
+      if (!NativeBridgeService.isNativeAndroid()) {
+        NativeBridgeService.openHealthConnectSettings();
+        showToast('Health Connect is an Android system service.', 'info');
+        return;
+      }
+      await handleSyncHealthConnect();
+      return;
+    }
+
+    if (providerId === 'bluetooth_le') {
+      await handleConnectBluetooth();
+      return;
+    }
+
+    const isCurrentlyConnected = connectedProviders[providerId];
+    try {
+      if (isCurrentlyConnected) {
+        await ApiService.disconnectWearable(providerId);
+        setConnectedProviders((prev) => ({ ...prev, [providerId]: false }));
+        showToast(`Disconnected ${providerName}.`, 'info');
+      } else {
+        await ApiService.pairWearableDevice({
+          provider: providerId,
+          device_name: providerName,
+        });
+        setConnectedProviders((prev) => ({ ...prev, [providerId]: true }));
+        showToast(`Connected to ${providerName}.`, 'success');
+      }
+    } catch (err: any) {
+      showToast(`Could not update ${providerName} connection.`, 'error');
+    }
+  };
+
   const handleSync = async () => {
     setSyncing(true);
     try {
@@ -71,8 +194,9 @@ export const WearablesPage: React.FC = () => {
       setMetrics(updated);
       const updatedSleep = await ApiService.getSleepSummary();
       setSleepSummary(updatedSleep);
+      showToast('Sensor hub synchronized with latest physiological readings.', 'success');
     } catch (e) {
-      alert('Could not synchronize wearable device.');
+      showToast('Could not synchronize wearable device.', 'error');
     } finally {
       setSyncing(false);
     }
@@ -104,8 +228,9 @@ export const WearablesPage: React.FC = () => {
       await ApiService.logWellnessMetric(payload);
       setShowLogModal(false);
       await loadData();
+      showToast('Biometric observation saved successfully.', 'success');
     } catch (e) {
-      alert('Could not save biometric record.');
+      showToast('Could not save biometric record.', 'error');
     } finally {
       setLoading(false);
     }
@@ -116,28 +241,49 @@ export const WearablesPage: React.FC = () => {
 
   const providers = [
     {
-      id: 'mock',
-      name: 'BioSensor Simulator',
-      desc: 'Physiological simulator with realistic HRV, steps & sleep architecture',
-      status: hasMetrics ? 'Connected (Synced)' : 'Disconnected (Click Sync to Pair)',
+      id: 'google_health_connect',
+      name: 'Google Health Connect (Primary Android)',
+      desc: 'Unified Android health data layer. Reads steps, heart rate, sleep stages, and active energy from Pixel Watch, Galaxy Watch, Xiaomi, etc.',
+      status: connectedProviders.google_health_connect ? 'Connected (System Integrated)' : (healthConnectInfo.available ? 'Available (Click to Sync)' : 'Requires Android Health Connect'),
+      isPrimary: true,
+      actionLabel: connectedProviders.google_health_connect ? 'Sync Telemetry' : 'Connect / Sync',
+      supportedMetrics: ['Steps', 'Resting HR', 'Sleep Stages', 'Active Calories'],
     },
     {
-      id: 'apple',
-      name: 'Apple HealthKit',
-      desc: 'Ingestion of Apple Watch sleep stages and heart rate variability metrics',
-      status: 'OAuth Ready',
+      id: 'bluetooth_le',
+      name: 'Direct Bluetooth LE Smartwatch / HRM',
+      desc: 'Connect direct Bluetooth GATT heart-rate sensors and smartwatches exposing standard 0x180D service.',
+      status: connectedProviders.bluetooth_le ? `Connected (${bleDevice?.name || 'BLE Device'})` : 'Ready to Pair',
+      isPrimary: false,
+      actionLabel: connectedProviders.bluetooth_le ? 'Disconnect' : 'Pair BLE Device',
+      supportedMetrics: ['Live Heart Rate', 'RR-Intervals'],
     },
     {
       id: 'fitbit',
       name: 'Fitbit Web API',
-      desc: 'OAuth 2.0 PKCE synchronization for steps, resting HR, and activity',
-      status: 'OAuth Ready',
+      desc: 'Cloud OAuth 2.0 synchronization for Fitbit Sense, Versa, and Charge series.',
+      status: connectedProviders.fitbit ? 'Connected (Cloud Paired)' : 'Ready for OAuth',
+      isPrimary: false,
+      actionLabel: connectedProviders.fitbit ? 'Disconnect' : 'Connect Fitbit',
+      supportedMetrics: ['Steps', 'Resting HR', 'Sleep', 'Active Minutes'],
     },
     {
-      id: 'google',
-      name: 'Google Health Connect',
-      desc: 'Android unified health and sensor data synchronizer',
-      status: 'OAuth Ready',
+      id: 'apple_health',
+      name: 'Apple HealthKit',
+      desc: 'Ingestion of Apple Watch sleep stages, steps, and heart rate variability metrics on iOS devices.',
+      status: connectedProviders.apple_health ? 'Connected' : 'iOS Platform Layer',
+      isPrimary: false,
+      actionLabel: connectedProviders.apple_health ? 'Disconnect' : 'Pair Apple Watch',
+      supportedMetrics: ['Steps', 'Sleep Stages', 'Active Calories'],
+    },
+    {
+      id: 'mock',
+      name: 'BioSensor Simulator (Offline Fallback)',
+      desc: 'Physiological simulator with realistic HRV, steps & sleep architecture for demonstration and testing.',
+      status: hasMetrics ? 'Simulator Synchronized' : 'Offline Sandbox Ready',
+      isPrimary: false,
+      actionLabel: 'Run Simulator Sync',
+      supportedMetrics: ['All Simulated Channels'],
     },
   ];
 
@@ -495,18 +641,60 @@ export const WearablesPage: React.FC = () => {
               {providers.map((p) => (
                 <div
                   key={p.id}
-                  className="p-4 rounded-xl border border-earth-200 dark:border-forest-800 bg-earth-50/50 dark:bg-forest-800/40 flex items-start justify-between"
+                  className={`p-4 rounded-xl border flex flex-col justify-between gap-3 ${
+                    p.isPrimary
+                      ? 'border-sage-300 dark:border-forest-700 bg-sage-50/40 dark:bg-forest-800/60 shadow-xs'
+                      : 'border-earth-200 dark:border-forest-800 bg-earth-50/50 dark:bg-forest-800/40'
+                  }`}
                 >
                   <div>
-                    <h3 className="text-sm font-semibold text-forest-900 dark:text-sage-100">{p.name}</h3>
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <h3 className="text-sm font-semibold text-forest-900 dark:text-sage-100 flex items-center gap-1.5">
+                        {p.id === 'bluetooth_le' && <Bluetooth className="w-3.5 h-3.5 text-blue-500" />}
+                        <span>{p.name}</span>
+                      </h3>
+                      {p.isPrimary && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sage-600 text-white">
+                          Primary Android
+                        </span>
+                      )}
+                    </div>
                     <p className="text-xs text-earth-600 dark:text-sage-300 mt-1 max-w-sm">{p.desc}</p>
-                    <span className={`inline-block text-[10px] mt-3 font-semibold px-2 py-0.5 rounded-full ${
-                      p.status.includes('Connected')
-                        ? 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800'
-                        : 'bg-earth-100 dark:bg-forest-700 text-earth-700 dark:text-sage-300'
-                    }`}>
+
+                    <div className="mt-2.5 flex flex-wrap gap-1">
+                      {p.supportedMetrics?.map((m: string, mIdx: number) => (
+                        <span
+                          key={mIdx}
+                          className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-earth-100 dark:bg-forest-700 text-earth-700 dark:text-sage-300"
+                        >
+                          ✓ {m}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2 border-t border-earth-100 dark:border-forest-700/60">
+                    <span
+                      className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                        p.status.includes('Connected')
+                          ? 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800'
+                          : 'bg-earth-100 dark:bg-forest-700 text-earth-700 dark:text-sage-300'
+                      }`}
+                    >
                       {p.status}
                     </span>
+
+                    <button
+                      onClick={() => handleToggleProvider(p.id, p.name)}
+                      disabled={syncing}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1 shadow-2xs ${
+                        p.status.includes('Connected')
+                          ? 'bg-earth-200 dark:bg-forest-700 hover:bg-earth-300 dark:hover:bg-forest-600 text-forest-900 dark:text-sage-200'
+                          : 'bg-sage-600 hover:bg-sage-700 text-white'
+                      }`}
+                    >
+                      <span>{p.actionLabel}</span>
+                    </button>
                   </div>
                 </div>
               ))}

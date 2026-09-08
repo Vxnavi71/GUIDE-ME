@@ -16,8 +16,8 @@ export const RegisterPage: React.FC = () => {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (password.length < 8) {
-      setError('Password must be at least 8 characters with upper, lower, and numbers.');
+    if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(password)) {
+      setError('Password must be at least 8 characters and contain uppercase, lowercase, and a digit.');
       return;
     }
     setLoading(true);

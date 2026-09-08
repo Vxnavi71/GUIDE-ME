@@ -1,5 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { ToastProvider } from './components/ToastNotification';
+import { ConsentProvider } from './contexts/ConsentContext';
 import { DashboardLayout } from './layouts/DashboardLayout';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
@@ -26,8 +28,10 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
 export const App: React.FC = () => {
   return (
-    <BrowserRouter>
-      <Routes>
+    <ToastProvider>
+      <ConsentProvider>
+        <BrowserRouter>
+          <Routes>
         {/* Public Auth Routes */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
@@ -59,7 +63,9 @@ export const App: React.FC = () => {
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
-    </BrowserRouter>
+        </BrowserRouter>
+      </ConsentProvider>
+    </ToastProvider>
   );
 };
 

@@ -12,6 +12,7 @@ from app.api.v1.goals import router as goals_router
 from app.api.v1.career import router as career_router
 from app.api.v1.safety import router as safety_router
 from app.api.v1.recommendations import router as recommendations_router
+from app.api.v1.wearables import router as wearables_router
 
 api_router = APIRouter()
 
@@ -27,3 +28,4 @@ api_router.include_router(goals_router)
 api_router.include_router(career_router)
 api_router.include_router(safety_router)
 api_router.include_router(recommendations_router)
+api_router.include_router(wearables_router)

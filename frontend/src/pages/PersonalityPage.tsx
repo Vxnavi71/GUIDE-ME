@@ -22,8 +22,10 @@ import {
   Tooltip,
 } from 'recharts';
 import { ApiService } from '../services/api';
+import { useToast } from '../components/ToastNotification';
 
 export const PersonalityPage: React.FC = () => {
+  const { showToast } = useToast();
   const [result, setResult] = useState<any>(null);
   const [questions, setQuestions] = useState<any[]>([]);
   const [answers, setAnswers] = useState<Record<string, number>>({});
@@ -59,7 +61,7 @@ export const PersonalityPage: React.FC = () => {
 
   const handleSubmit = async () => {
     if (Object.keys(answers).length < questions.length) {
-      alert(`Please answer all ${questions.length} questions before submitting.`);
+      showToast(`Please answer all ${questions.length} questions before submitting.`, 'warning');
       return;
     }
 
@@ -72,8 +74,9 @@ export const PersonalityPage: React.FC = () => {
       const res = await ApiService.submitOcean('default-assessment', payloadAnswers);
       setResult(res);
       setIsAssessmentMode(false);
+      showToast('Personality assessment scored successfully!', 'success');
     } catch (e) {
-      alert('Failed to score assessment.');
+      showToast('Failed to score assessment.', 'error');
     } finally {
       setSubmitting(false);
     }

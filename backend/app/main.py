@@ -47,6 +47,42 @@ app.add_middleware(
 )
 
 
+from collections import defaultdict
+import asyncio
+
+_rate_limit_records = defaultdict(list)
+_last_cleanup = time.time()
+
+@app.middleware("http")
+async def rate_limit_middleware(request: Request, call_next):
+    global _last_cleanup
+    now = time.time()
+    
+    # Periodically clean up old entries
+    if now - _last_cleanup > 60:
+        cutoff = now - 60
+        for ip in list(_rate_limit_records.keys()):
+            _rate_limit_records[ip] = [t for t in _rate_limit_records[ip] if t > cutoff]
+            if not _rate_limit_records[ip]:
+                del _rate_limit_records[ip]
+        _last_cleanup = now
+
+    client_ip = request.client.host if request.client else "unknown"
+    cutoff = now - 60
+    
+    _rate_limit_records[client_ip] = [t for t in _rate_limit_records[client_ip] if t > cutoff]
+    
+    if len(_rate_limit_records[client_ip]) >= settings.RATE_LIMIT_PER_MINUTE:
+        return JSONResponse(
+            status_code=429,
+            content={"detail": "Too Many Requests"}
+        )
+        
+    _rate_limit_records[client_ip].append(now)
+    
+    return await call_next(request)
+
+
 # Observability & Security Middleware
 @app.middleware("http")
 async def observability_and_security_headers_middleware(request: Request, call_next):

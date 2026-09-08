@@ -12,8 +12,10 @@ import {
   Info,
 } from 'lucide-react';
 import { ApiService } from '../services/api';
+import { useToast } from '../components/ToastNotification';
 
 export const JournalPage: React.FC = () => {
+  const { showToast } = useToast();
   const [journals, setJournals] = useState<any[]>([]);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -61,8 +63,9 @@ export const JournalPage: React.FC = () => {
       setTitle('');
       setContent('');
       setTagInput('');
+      showToast('Journal reflection recorded successfully', 'success');
     } catch (e) {
-      alert('Could not save journal entry.');
+      showToast('Could not save journal entry.', 'error');
     } finally {
       setLoading(false);
     }
@@ -77,8 +80,9 @@ export const JournalPage: React.FC = () => {
       if (selectedJournal?.id === id) {
         setSelectedJournal(updated[0] || null);
       }
+      showToast('Journal entry removed.', 'info');
     } catch (e) {
-      alert('Could not delete journal entry.');
+      showToast('Could not delete journal entry.', 'error');
     }
   };
 

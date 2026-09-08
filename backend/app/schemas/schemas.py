@@ -461,6 +461,13 @@ class WearableConnectionResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class WearablePairRequest(BaseModel):
+    provider: str  # google_health_connect, fitbit, bluetooth_le, apple_health
+    device_name: str
+    device_id: Optional[str] = None
+    auth_token: Optional[str] = None
+
+
 class DigitalWellbeingUpdate(BaseModel):
     total_screen_time_minutes: Optional[int] = None
     focus_time_minutes: Optional[int] = None
@@ -469,6 +476,7 @@ class DigitalWellbeingUpdate(BaseModel):
     pickup_count: Optional[int] = None
     target_limit_minutes: Optional[int] = None
     categories: Optional[Dict[str, int]] = None
+    source: Optional[str] = "manual"
 
 
 class DigitalWellbeingDayTrend(BaseModel):
@@ -490,6 +498,7 @@ class DigitalWellbeingResponse(BaseModel):
     target_limit_minutes: int = 300
     categories: Dict[str, int] = {}
     provider_mode: str = "not_connected"
+    source: Optional[str] = "manual"
     weekly_trends: List[DigitalWellbeingDayTrend] = []
 
     model_config = ConfigDict(from_attributes=True)
@@ -544,6 +553,9 @@ class FacialSignalMetrics(BaseModel):
 
 
 class FacialAnalysisResponse(BaseModel):
+    status: str = "success"
+    face_count: int = 0
+    frame_quality: float = 1.0
     face_detected: bool = False
     detected_expression: str  # e.g., "Calm / Neutral", "No face detected"
     confidence: float
@@ -560,9 +572,20 @@ class CareerRecommendationResponse(BaseModel):
     path_title: str
     match_score: int
     alignment_reason: str
+    why_recommended: Optional[str] = None
     key_strengths: List[str]
     growth_areas: List[str]
+    skill_gaps: Optional[List[str]] = None
     learning_roadmap: List[str]
+    possible_roles: List[str] = []
+    progression_path: str = ""
+    required_skills: List[str] = []
+
+class CareerPreferencesCreate(BaseModel):
+    education: Optional[str] = None
+    skills: List[str] = []
+    interests: List[str] = []
+    goals: List[str] = []
 
 
 # =====================================================================

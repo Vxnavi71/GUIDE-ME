@@ -219,9 +219,42 @@ GEMINI_FUNCTION_DECLARATIONS = [
     },
 ]
 
-# Thread-safe in-memory cache for pending destructive actions
-# action_id -> dict
-PENDING_DESTRUCTIVE_ACTIONS: Dict[str, Dict[str, Any]] = {}
+import json
+import os
+
+PENDING_ACTIONS_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "pending_actions.json")
+
+def _load_pending() -> Dict[str, Dict[str, Any]]:
+    if not os.path.exists(PENDING_ACTIONS_FILE):
+        return {}
+    try:
+        with open(PENDING_ACTIONS_FILE, "r") as f:
+            data = json.load(f)
+            for k, v in data.items():
+                if isinstance(v.get("created_at"), str):
+                    v["created_at"] = datetime.fromisoformat(v["created_at"])
+                if isinstance(v.get("expires_at"), str):
+                    v["expires_at"] = datetime.fromisoformat(v["expires_at"])
+            return data
+    except Exception as e:
+        logger.error(f"Failed to load pending actions: {e}")
+        return {}
+
+def _save_pending(data: Dict[str, Dict[str, Any]]):
+    try:
+        serializable_data = {}
+        for k, v in data.items():
+            item_copy = dict(v)
+            if isinstance(item_copy.get("created_at"), datetime):
+                item_copy["created_at"] = item_copy["created_at"].isoformat()
+            if isinstance(item_copy.get("expires_at"), datetime):
+                item_copy["expires_at"] = item_copy["expires_at"].isoformat()
+            serializable_data[k] = item_copy
+        
+        with open(PENDING_ACTIONS_FILE, "w") as f:
+            json.dump(serializable_data, f)
+    except Exception as e:
+        logger.error(f"Failed to save pending actions: {e}")
 
 
 class ToolDispatcher:
@@ -269,7 +302,9 @@ class ToolDispatcher:
                 "created_at": datetime.now(timezone.utc),
                 "expires_at": datetime.now(timezone.utc) + timedelta(minutes=15),
             }
-            PENDING_DESTRUCTIVE_ACTIONS[action_id] = pending
+            pending_actions = _load_pending()
+            pending_actions[action_id] = pending
+            _save_pending(pending_actions)
 
             return {
                 "confirmation_required": True,
@@ -507,7 +542,8 @@ class ToolDispatcher:
         """
         Executes a previously held destructive tool action after explicit user confirmation.
         """
-        pending = PENDING_DESTRUCTIVE_ACTIONS.get(action_id)
+        pending_actions = _load_pending()
+        pending = pending_actions.get(action_id)
         if not pending:
             return {"status": "error", "message": "Pending action expired or not found."}
 
@@ -516,7 +552,8 @@ class ToolDispatcher:
 
         # Check expiration (15 minutes)
         if datetime.now(timezone.utc) > pending["expires_at"]:
-            PENDING_DESTRUCTIVE_ACTIONS.pop(action_id, None)
+            pending_actions.pop(action_id, None)
+            _save_pending(pending_actions)
             return {"status": "error", "message": "Action has expired. Please ask the companion again."}
 
         tool_name = pending["tool_name"]
@@ -526,7 +563,8 @@ class ToolDispatcher:
             if tool_name == "delete_goal":
                 goal_repo = GoalRepository(db)
                 deleted = await goal_repo.delete(args["goal_id"], user_id)
-                PENDING_DESTRUCTIVE_ACTIONS.pop(action_id, None)
+                pending_actions.pop(action_id, None)
+                _save_pending(pending_actions)
                 if deleted:
                     return {
                         "status": "success",
@@ -539,7 +577,8 @@ class ToolDispatcher:
             elif tool_name == "delete_habit":
                 habit_repo = HabitRepository(db)
                 deleted = await habit_repo.delete(args["habit_id"], user_id)
-                PENDING_DESTRUCTIVE_ACTIONS.pop(action_id, None)
+                pending_actions.pop(action_id, None)
+                _save_pending(pending_actions)
                 if deleted:
                     return {
                         "status": "success",
@@ -550,7 +589,8 @@ class ToolDispatcher:
                 return {"status": "error", "message": "Habit was not found or already deleted."}
 
             else:
-                PENDING_DESTRUCTIVE_ACTIONS.pop(action_id, None)
+                pending_actions.pop(action_id, None)
+                _save_pending(pending_actions)
                 return {"status": "error", "message": f"Unrecognized destructive tool: {tool_name}"}
 
         except Exception as exc:
@@ -562,11 +602,13 @@ class ToolDispatcher:
         """
         Cancels a pending destructive action.
         """
-        pending = PENDING_DESTRUCTIVE_ACTIONS.get(action_id)
+        pending_actions = _load_pending()
+        pending = pending_actions.get(action_id)
         if not pending or pending["user_id"] != user_id:
             return {"status": "error", "message": "Pending action not found."}
 
-        PENDING_DESTRUCTIVE_ACTIONS.pop(action_id, None)
+        pending_actions.pop(action_id, None)
+        _save_pending(pending_actions)
         return {
             "status": "cancelled",
             "action_id": action_id,

@@ -33,6 +33,31 @@ class MockLLMProvider(BaseLLMProvider):
     Never repeats static canned phrases; adapts dynamically to multi-turn conversation flow.
     """
 
+    def __init__(self):
+        self.intents = {
+            "greeting": ["hello", "hi", "hey", "good morning", "good evening", "good afternoon", "greetings"],
+            "farewell": ["bye", "goodbye", "see you", "night", "good night"],
+            "mood_check": ["mood", "feeling", "feel", "sad", "happy", "depressed"],
+            "stress_expression": ["stress", "pressure", "deadline", "swamped", "hectic", "too much"],
+            "goal_discussion": ["goal", "target", "achieve", "milestone", "trying to", "working on"],
+            "habit_tracking": ["habit", "routine", "discipline", "procrastinating", "lazy", "stuck"],
+            "career_question": ["career", "job", "boss", "interview", "resume", "promotion", "workplace"],
+            "journal_reflection": ["journal", "writing", "reflection", "wrote"],
+            "sleep_concern": ["sleep", "tired", "exhausted", "insomnia", "drained", "burnout"],
+            "relationship": ["friend", "partner", "family", "relationship", "argue", "argument"],
+            "gratitude": ["thank", "grateful", "appreciate", "blessed", "glad"],
+            "frustration": ["angry", "mad", "furious", "frustrated", "annoyed", "unfair", "hate"],
+            "anxiety": ["anxious", "anxiety", "panic", "overwhelmed", "freaking out", "racing heart"],
+            "general_question": ["what", "how", "why", "when", "can you", "help"],
+            "small_talk": ["weather", "how are you", "what's up", "doing well"]
+        }
+
+    def _classify_intent(self, msg_lower: str) -> str:
+        for intent, keywords in self.intents.items():
+            if any(k in msg_lower for k in keywords):
+                return intent
+        return "general_question"
+
     async def generate_response(
         self,
         user_message: str,
@@ -47,9 +72,39 @@ class MockLLMProvider(BaseLLMProvider):
 
         # 1. Parse Context from System Prompt
         user_name = "there"
-        if "User Name:" in system_prompt:
+        if "User Name:" in system_prompt or "You are speaking with" in system_prompt:
             try:
-                user_name = system_prompt.split("User Name:")[1].split("\n")[0].strip()
+                if "You are speaking with" in system_prompt:
+                    user_name = system_prompt.split("You are speaking with ")[1].split(".")[0].strip()
+                else:
+                    user_name = system_prompt.split("User Name:")[1].split("\n")[0].strip()
+            except Exception:
+                pass
+
+        traits_ref = ""
+        if "Dominant Traits:" in system_prompt:
+            try:
+                traits = system_prompt.split("Dominant Traits:")[1].split("\n")[0].strip()
+                if traits and "Balanced" not in traits:
+                    traits_ref = f" With your natural {traits.split(',')[0].lower()} trait,"
+            except Exception:
+                pass
+
+        goals_ref = ""
+        if "Active Goals Being Pursued:" in system_prompt:
+            try:
+                goals = system_prompt.split("Active Goals Being Pursued:")[1].split("\n")[1].replace("-", "").strip()
+                if goals:
+                    goals_ref = f" knowing you are working on '{goals}',"
+            except Exception:
+                pass
+
+        habits_ref = ""
+        if "Active Habits Tracked:" in system_prompt:
+            try:
+                habits = system_prompt.split("Active Habits Tracked:")[1].split("\n")[1].replace("-", "").strip()
+                if habits:
+                    habits_ref = f" building on your habit of {habits},"
             except Exception:
                 pass
 
@@ -121,148 +176,134 @@ class MockLLMProvider(BaseLLMProvider):
 
         # 3. Inspect Previous Turn for Conversational Coherence
         last_asst_msg = ""
+        recent_history = conversation_history[-6:] if len(conversation_history) > 6 else conversation_history
         turn_count = len(conversation_history)
-        if conversation_history:
-            for past in reversed(conversation_history):
-                if past.get("role") == "assistant":
-                    last_asst_msg = past.get("content", "").lower()
-                    break
-
-        is_affirmative = msg_lower in ["yes", "yeah", "yep", "sure", "okay", "ok", "i did", "i would", "please do", "absolutely"]
-        is_negative = msg_lower in ["no", "nope", "not really", "i haven't", "i didn't", "not yet", "cant", "can't"]
-
-        # 4. Multi-Turn Contextual Follow-up
-        if is_affirmative and last_asst_msg:
-            if "stretch" in last_asst_msg or "rest" in last_asst_msg:
-                return (
-                    f"That is wonderful, {user_name}. Gently roll your shoulders back, drop your jaw away from the roof of your mouth, and close your eyes for just 60 seconds. Notice how the floor or chair supports you.\n\n"
-                    "When you return, let me know how your breath feels.",
-                    extracted_memories
-                )
-            elif "career" in last_asst_msg or "dashboard" in last_asst_msg:
-                return (
-                    f"Great! Head over to the Career Guidance tab whenever you are ready. Your Big Five psychometric scores map directly to occupational environments that minimize cognitive friction.\n\n"
-                    "Would you like to explore roles that leverage your dominant traits?",
-                    extracted_memories
-                )
-            elif "fifteen minutes" in last_asst_msg or "breath" in last_asst_msg:
-                return (
-                    f"I'm right here with you, {user_name}. Inhale slowly through your nose for a count of 4... hold gently for 4... and exhale completely for 6. Let that singular task wait until your nervous system feels settled.\n\n"
-                    "What does your mind feel ready to gently address next?",
-                    extracted_memories
-                )
-            else:
-                return (
-                    f"I love your openness to that step, {user_name}. Taking deliberate action—no matter how small—creates real positive psychological inertia.\n\n"
-                    "What feels like the best place to begin right now?",
-                    extracted_memories
-                )
-
-        if is_negative and last_asst_msg:
-            return (
-                f"That is completely fine, {user_name}. Self-compassion means honoring where you are without pushing past your current boundary.\n\n"
-                "There is zero pressure here. What would feel most comforting or restorative to you in this exact moment?",
-                extracted_memories
-            )
-
-        # 5. Domain-Specific Conversational Synthesis
-        # Greetings
-        if any(w in msg_lower for w in ["hello", "hi", "hey", "good morning", "good evening", "good afternoon", "greetings"]):
-            responses = [
-                f"Hello {user_name}! It's good to connect with you. How are you feeling in your mind and body right now?",
-                f"Hi {user_name}, welcome back to your quiet space. What has the rhythm of your day felt like so far?",
-                f"Warm greetings, {user_name}. I am here to listen and reflect with you. What would you like to explore or set down today?",
-            ]
-            chosen = responses[turn_count % len(responses)]
-            return chosen, extracted_memories
-
-        # Acute Anxiety & Overwhelm
-        if any(w in msg_lower for w in ["anxious", "anxiety", "panic", "overwhelmed", "freaking out", "racing heart", "can't breathe"]):
-            return (
-                f"I hear how intense this wave feels, {user_name}. When anxiety surges, our nervous system is trying to protect us, even when there is no immediate danger.\n\n"
-                "Let's anchor to the physical world right now: look around and name 3 things you can see, 2 things you can touch, and 1 sound you can hear. You are safe in this room right now.",
-                extracted_memories
-            )
-
-        # Stress & Pressure
-        if any(w in msg_lower for w in ["stressed", "pressure", "deadline", "too much work", "swamped", "hectic"]):
-            return (
-                f"It sounds like your cognitive load is pushed to maximum capacity, {user_name}. When demands pile up, our instinct is to move faster, which only accelerates stress.\n\n"
-                "What is one commitment or task on your plate today that can be safely renegotiated, delegated, or pushed to tomorrow?",
-                extracted_memories
-            )
-
-        # Fatigue, Exhaustion & Sleep
-        if any(w in msg_lower for w in ["tired", "exhausted", "burnout", "burnt out", "sleepy", "insomnia", "couldn't sleep", "drained"]):
-            return (
-                f"Your energy reserves are communicating something vital, {user_name}. Physical and emotional depletion cannot be resolved by willpower—it demands genuine restoration.\n\n"
-                "Can you protect a 20-minute window this evening with zero screens, dim lighting, and zero agenda?",
-                extracted_memories
-            )
-
-        # Sadness, Loneliness & Heavy Emotions
-        if any(w in msg_lower for w in ["sad", "depressed", "lonely", "alone", "crying", "empty", "hopeless", "numb", "hurting"]):
-            return (
-                f"Thank you for trusting me with how heavy things feel right now, {user_name}. It takes vulnerability to acknowledge sadness and loneliness.\n\n"
-                "You don't need to put on a brave face or fix this feeling right away. If you could wrap yourself in one comforting thing—a warm drink, quiet music, or a cozy blanket—what would that be?",
-                extracted_memories
-            )
-
-        # Frustration & Anger
-        if any(w in msg_lower for w in ["angry", "mad", "furious", "frustrated", "annoyed", "unfair", "hate this"]):
-            return (
-                f"Your frustration is completely valid, {user_name}. Anger is often our internal boundary alarm telling us something crossed a line or an expectation wasn't met.\n\n"
-                "What is the core boundary or value that feels compromised here, and what is within your power to safeguard?",
-                extracted_memories
-            )
-
-        # Joy, Wins & Gratitude
-        if any(w in msg_lower for w in ["happy", "great", "awesome", "proud", "excited", "grateful", "celebrate", "won", "passed"]):
-            return (
-                f"That is wonderful news, {user_name}! In modern life we often rush past our victories to the next problem. Let's linger in this feeling for a moment.\n\n"
-                "What part of this accomplishment feels most meaningful to who you are becoming?",
-                extracted_memories
-            )
-
-        # Habits, Goals & Consistency
-        if any(w in msg_lower for w in ["habit", "routine", "discipline", "procrastinating", "lazy", "stuck", "motivation"]):
-            return (
-                f"Remember that consistency isn't about rigid perfection, {user_name}—it's about reducing the friction of restarting.\n\n"
-                "If the standard goal feels daunting today, what is the absolute 'micro-version' of it? Even two minutes of practice counts towards maintaining your identity.",
-                extracted_memories
-            )
-
-        # Career, Professional Life & Purpose
-        if any(w in msg_lower for w in ["career", "job", "boss", "coworker", "interview", "resume", "promotion", "workplace"]):
-            return (
-                f"Navigating professional life requires balancing your intrinsic values with external workplace demands, {user_name}.\n\n"
-                "When you look at this current challenge, does it feel like a skill to develop, a communication gap to bridge, or an environment you need to set boundaries with?",
-                extracted_memories
-            )
-
-        # Breathing / Mindfulness Request
-        if any(w in msg_lower for w in ["calm me", "breathe", "meditate", "grounding", "relax me", "exercise"]):
-            return (
-                f"Let's do a gentle grounding practice together right now, {user_name}.\n\n"
-                "1. Sit comfortably and uncross your legs.\n"
-                "2. Inhale smoothly through your nose for 4 counts... 1, 2, 3, 4.\n"
-                "3. Hold your breath gently for 4 counts... 1, 2, 3, 4.\n"
-                "4. Exhale softly through your mouth for 6 counts... 1, 2, 3, 4, 5, 6.\n\n"
-                "Repeat that twice more. Notice the subtle release of tension in your jaw and shoulders.",
-                extracted_memories
-            )
-
-        # General Thoughtful Reflection (Varied and context-anchored)
-        words_in_msg = [w for w in msg.split() if len(w) > 4][:3]
-        topic_preview = f" around '{' '.join(words_in_msg)}'" if words_in_msg else ""
         
-        thoughtful_responses = [
-            f"I appreciate you sharing your perspective{topic_preview}, {user_name}. What do you feel is the most important thread connecting these thoughts today?",
-            f"Thank you for opening up about this, {user_name}. When you step back and look at the bigger picture, what would a supportive next step look like for you?",
-            f"It's valuable to put words to this{topic_preview}. As you write this down, does it feel like something you are ready to resolve, or do you simply need space to be heard?",
-        ]
-        chosen_resp = thoughtful_responses[turn_count % len(thoughtful_responses)]
-        return chosen_resp, extracted_memories
+        for past in reversed(recent_history):
+            if past.get("role") == "assistant":
+                last_asst_msg = past.get("content", "").lower()
+                break
+
+        # Conversation phase tracking
+        phase_prefix = ""
+        if turn_count == 0:
+            phase_prefix = f"Welcome, {user_name}. "
+        elif turn_count < 5:
+            phase_prefix = "Let's explore this further. "
+        else:
+            phase_prefix = "Taking action can be empowering. "
+            
+        intent = self._classify_intent(msg_lower)
+        
+        # Determine if we discussed this recently
+        discussed_recently = any(intent in msg.get("content", "").lower() for msg in recent_history if msg.get("role") == "assistant")
+        if discussed_recently and intent not in ["greeting", "farewell", "small_talk"]:
+            phase_prefix = "Earlier you mentioned something similar, let's dive deeper. "
+
+        # Basic Crisis Check
+        if any(w in msg_lower for w in ["suicide", "kill myself", "want to die", "end it all"]):
+            return f"I hear how much pain you are in, {user_name}. Please know you are not alone. Please reach out to Indian crisis helplines immediately: Tele-MANAS (14416) or KIRAN (1800-599-0019).", extracted_memories
+
+        responses = {
+            "greeting": [
+                f"Hello {user_name}! It's good to connect with you.",
+                f"Hi {user_name}, welcome back to your quiet space.",
+                f"Warm greetings, {user_name}. I am here to listen and reflect with you.",
+                f"Hey {user_name}! How are you feeling today?"
+            ],
+            "farewell": [
+                f"Goodbye, {user_name}. Take care of yourself.",
+                f"See you later, {user_name}. I'll be here when you need me.",
+                f"Have a peaceful rest of your day, {user_name}.",
+                f"Take care, {user_name}. Remember your progress."
+            ],
+            "mood_check": [
+                f"It sounds like you're going through a lot, {user_name}.{traits_ref} Let's take it one step at a time.",
+                f"I'm here to listen, {user_name}. How else is this affecting you?",
+                f"Your feelings are valid, {user_name}. What do you think triggered this?",
+                f"Thank you for sharing that with me, {user_name}. It's important to acknowledge our feelings."
+            ],
+            "stress_expression": [
+                f"It sounds like your cognitive load is pushed to maximum capacity, {user_name}.{goals_ref} Let's find a way to manage this.",
+                f"Stress can be overwhelming, {user_name}. Can we break down what's on your plate today?",
+                f"I hear how stressed you are, {user_name}. Remember to breathe.",
+                f"When demands pile up, {user_name}, it's okay to step back. What can be safely pushed to tomorrow?"
+            ],
+            "goal_discussion": [
+                f"That's a great focus, {user_name}.{goals_ref} How can we break that down into smaller steps?",
+                f"I love your dedication to your goals, {user_name}. What's the next small milestone?",
+                f"Working towards your goals is a journey, {user_name}. Celebrate the small wins.",
+                f"Your ambition is inspiring, {user_name}. How can I support you in this goal?"
+            ],
+            "habit_tracking": [
+                f"Consistency isn't about rigid perfection, {user_name}.{habits_ref} It's about reducing friction.",
+                f"Habits take time to build, {user_name}. What's the smallest version of this habit you can do today?",
+                f"You're doing great, {user_name}. Every little bit counts.",
+                f"If you're stuck, {user_name}, let's try scaling it back. Two minutes of practice counts."
+            ],
+            "career_question": [
+                f"Navigating professional life can be challenging, {user_name}.{traits_ref} Does this feel like a skill to develop or a boundary to set?",
+                f"Your career journey is important, {user_name}. What values are most important to you in this situation?",
+                f"Let's look at this career challenge, {user_name}. What's the best outcome you can envision?",
+                f"Workplace dynamics are tricky, {user_name}. How can you protect your peace while addressing this?"
+            ],
+            "journal_reflection": [
+                f"Journaling is a powerful tool, {user_name}. What did you discover through your reflection?",
+                f"It's great that you're writing things down, {user_name}. What was the most prominent feeling?",
+                f"Reflecting through journaling helps process emotions, {user_name}. Keep it up.",
+                f"I'm glad you're taking time to journal, {user_name}. What's one takeaway from your writing?"
+            ],
+            "sleep_concern": [
+                f"Your energy reserves are communicating something vital, {user_name}. True restoration is needed.",
+                f"Sleep is foundational, {user_name}. Can you protect a 20-minute wind-down window tonight?",
+                f"I hear you're exhausted, {user_name}. Let's prioritize rest today.",
+                f"Fatigue is your body's signal, {user_name}. How can we make your evening more relaxing?"
+            ],
+            "relationship": [
+                f"Relationships can be complex, {user_name}. How did that interaction make you feel?",
+                f"It's important to communicate your needs, {user_name}. What boundary might help here?",
+                f"Navigating relationships requires patience, {user_name}. How can you support yourself through this?",
+                f"I hear how this relationship is impacting you, {user_name}. What do you need most right now?"
+            ],
+            "gratitude": [
+                f"That is wonderful to hear, {user_name}! Gratitude can shift our entire perspective.",
+                f"I love that you're finding things to be grateful for, {user_name}. What else brings you joy?",
+                f"Celebrating these moments is so important, {user_name}. Let's linger in this feeling.",
+                f"Your gratitude is infectious, {user_name}! It's great to acknowledge the good things."
+            ],
+            "frustration": [
+                f"Your frustration is completely valid, {user_name}. Anger often signals a crossed boundary.",
+                f"It's okay to feel mad, {user_name}. What value feels compromised here?",
+                f"I hear your annoyance, {user_name}. Let's take a deep breath before deciding what to do next.",
+                f"Frustration is tough, {user_name}. What is within your power to change in this situation?"
+            ],
+            "anxiety": [
+                f"I hear how intense this wave feels, {user_name}. Let's anchor to the physical world. Name 3 things you can see.",
+                f"Anxiety is your nervous system trying to protect you, {user_name}. You are safe right now.",
+                f"Let's take a slow breath together, {user_name}. Inhale for 4, hold for 4, exhale for 6.",
+                f"It's okay to feel overwhelmed, {user_name}. Let's take this one tiny step at a time."
+            ],
+            "general_question": [
+                f"I appreciate you sharing your perspective, {user_name}. What do you feel is the most important thread here?",
+                f"Thank you for opening up about this, {user_name}. What would a supportive next step look like?",
+                f"It's valuable to put words to this, {user_name}. Does it feel like something you are ready to resolve?",
+                f"I'm here to support you, {user_name}. Tell me more about what you're thinking."
+            ],
+            "small_talk": [
+                f"I'm here and ready to chat, {user_name}. How is your day unfolding?",
+                f"It's nice to chat with you, {user_name}. What's on your mind today?",
+                f"I'm doing well, {user_name}. How are you holding up?",
+                f"Always glad to talk, {user_name}. What's the highlight of your day so far?"
+            ]
+        }
+
+        # Select response based on intent and turn count to ensure variety
+        options = responses.get(intent, responses["general_question"])
+        selected = options[turn_count % len(options)]
+        
+        final_response = f"{phase_prefix}{selected}"
+
+        return final_response, extracted_memories
 
 
 class ExternalLLMProvider(BaseLLMProvider):

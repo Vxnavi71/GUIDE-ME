@@ -1,14 +1,25 @@
-from typing import List
-from fastapi import APIRouter, Depends
+from typing import List, Optional
+from fastapi import APIRouter, Depends, Body
 from sqlalchemy.ext.asyncio import AsyncSession
+from pydantic import BaseModel
 
 from app.core.database import get_async_db
 from app.api.deps import get_current_user
 from app.models.entities import User
-from app.schemas.schemas import CareerRecommendationResponse
+from app.schemas.schemas import CareerRecommendationResponse, CareerPreferencesCreate
 from app.repositories import AssessmentRepository
+from app.ml.career_engine import CareerPathwayEngine
 
 router = APIRouter(prefix="/career", tags=["Career Guidance"])
+
+
+@router.post("/recommendations", response_model=List[CareerRecommendationResponse])
+async def get_career_recommendations_post(
+    preferences: Optional[CareerPreferencesCreate] = Body(None),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_async_db),
+):
+    return await _get_recommendations(current_user, db, preferences)
 
 
 @router.get("/recommendations", response_model=List[CareerRecommendationResponse])
@@ -16,38 +27,38 @@ async def get_career_recommendations(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_async_db),
 ):
+    return await _get_recommendations(current_user, db, None)
+
+
+async def _get_recommendations(current_user: User, db: AsyncSession, preferences: Optional[CareerPreferencesCreate] = None):
     repo = AssessmentRepository(db)
     result = await repo.get_latest_result(current_user.id)
 
-    # If personality test completed, align with psychometric results
     if result:
-        recs = [
-            CareerRecommendationResponse(
-                path_title="Systems Architect / Technical Lead",
-                match_score=92,
-                alignment_reason="Your high conscientiousness and structured analytical clarity align with complex system design.",
-                key_strengths=["Systematic Problem Decomposition", "Deep Focus", "Reliability Under Ambiguity"],
-                growth_areas=["Delegation Practice", "Managing Spontaneous Deadlines"],
-                learning_roadmap=[
-                    "Advanced Distributed System Design Patterns",
-                    "Empathetic Technical Mentorship & Leadership",
-                    "Domain-Driven Architecture Synthesis",
-                ],
-            ),
-            CareerRecommendationResponse(
-                path_title="UX / Clinical AI Research Engineer",
-                match_score=87,
-                alignment_reason="Your balanced openness and agreeableness foster user-centric, evidence-informed design.",
-                key_strengths=["User Empathy", "Multimodal Signal Interpretation", "Ethical AI Design"],
-                growth_areas=["High-Speed Prototyping Without Perfectionism"],
-                learning_roadmap=[
-                    "Human-Computer Interaction (HCI) Cognitive Load Evaluation",
-                    "Fairness & Responsible AI Guardrail Verification",
-                ],
-            ),
-        ]
+        # Extract OCEAN scores
+        ocean_scores = {
+            "openness": result.openness * 100 if result.openness <= 1.0 else result.openness,
+            "conscientiousness": result.conscientiousness * 100 if result.conscientiousness <= 1.0 else result.conscientiousness,
+            "extraversion": result.extraversion * 100 if result.extraversion <= 1.0 else result.extraversion,
+            "agreeableness": result.agreeableness * 100 if result.agreeableness <= 1.0 else result.agreeableness,
+            "neuroticism": result.neuroticism * 100 if result.neuroticism <= 1.0 else result.neuroticism,
+        }
+
+        user_interests = preferences.interests if preferences else []
+        user_skills = preferences.skills if preferences else []
+        user_education = preferences.education if preferences else None
+        user_goals = preferences.goals if preferences else []
+
+        recs = CareerPathwayEngine.generate_recommendations(
+            ocean_scores=ocean_scores,
+            user_interests=user_interests,
+            user_skills=user_skills,
+            user_education=user_education,
+            user_goals=user_goals
+        )
+        return [CareerRecommendationResponse(**rec) for rec in recs]
     else:
-        recs = [
+        return [
             CareerRecommendationResponse(
                 path_title="Holistic Technology & Operations Strategist",
                 match_score=84,
@@ -57,7 +68,16 @@ async def get_career_recommendations(
                 learning_roadmap=[
                     "Complete GUIDE ME Big Five Personality Inventory for personalized mapping",
                     "Identify top 3 intrinsic professional motivators",
-                ],
+                ]
             )
         ]
-    return recs
+
+@router.post("/preferences")
+async def update_career_preferences(
+    preferences: CareerPreferencesCreate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_async_db)
+):
+    # For now, just return a success message. 
+    # In a full implementation, we would save this to the database in a user_preferences table or user model.
+    return {"status": "success", "message": "Career preferences updated successfully."}

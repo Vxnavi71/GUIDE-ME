@@ -11,8 +11,10 @@ import {
   LifeBuoy,
 } from 'lucide-react';
 import { ApiService } from '../services/api';
+import { useToast } from '../components/ToastNotification';
 
 export const SafetyCenterPage: React.FC = () => {
+  const { showToast } = useToast();
   const [contacts, setContacts] = useState<any[]>([]);
   const [alertTriggered, setAlertTriggered] = useState(false);
   const [alertData, setAlertData] = useState<any>(null);
@@ -41,8 +43,9 @@ export const SafetyCenterPage: React.FC = () => {
         const res = await ApiService.triggerEmergencyAlert();
         setAlertData(res);
         setAlertTriggered(true);
+        showToast('Emergency safety alert triggered. Help resources are active.', 'warning');
       } catch (e) {
-        alert('Could not record alert.');
+        showToast('Could not record alert.', 'error');
       }
     }
   };
@@ -63,8 +66,9 @@ export const SafetyCenterPage: React.FC = () => {
       setPhoneNumber('');
       setEmail('');
       setShowAddModal(false);
+      showToast('Emergency contact added successfully.', 'success');
     } catch (e) {
-      alert('Could not add contact.');
+      showToast('Could not add contact.', 'error');
     }
   };
 

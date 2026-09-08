@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">GuideMe</string>
+    <string name="title_activity_main">GuideMe</string>
+    <string name="package_name">com.guideme.app</string>
+    <string name="custom_url_scheme">com.guideme.app</string>
+</resources>

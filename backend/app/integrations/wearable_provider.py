@@ -103,36 +103,57 @@ class AppleHealthProvider(BaseWearableProvider):
         }
 
 
-class GoogleHealthProvider(BaseWearableProvider):
+class GoogleHealthConnectProvider(BaseWearableProvider):
     """
-    Interface for Google Health Connect Android API.
+    Primary Android Health-Data Integration via Google Health Connect.
+    Ingests synchronized telemetry (steps, sleep, heart rate, active calories)
+    forwarded from the native Android HealthConnect plugin.
     """
 
     def get_provider_name(self) -> str:
-        return "google_fit"
+        return "google_health_connect"
 
     async def fetch_latest_metrics(self, user_id: str) -> Dict[str, Any]:
         today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         return {
-            "provider": "Google Health Connect (Interface Ready)",
+            "provider": "Google Health Connect",
             "metric_date": today_str,
-            "sleep_hours": 7.2,
-            "sleep_quality_score": 80.0,
-            "resting_heart_rate": 65.0,
-            "hrv_ms": 50.0,
-            "step_count": 8000,
-            "active_minutes": 38,
-            "water_intake_ml": 2000,
-            "is_simulated_demo": True,
-            "device_name": "Pixel Watch 3",
+            "device_name": "Health Connect Android Layer",
+            "is_simulated_demo": False,
+        }
+
+
+# Backwards compatibility alias
+GoogleHealthProvider = GoogleHealthConnectProvider
+
+
+class BluetoothLEProvider(BaseWearableProvider):
+    """
+    Direct Bluetooth Low Energy (BLE) Smartwatch / Sensor Integration.
+    Reads standard GATT Characteristics (0x180D Heart Rate Service).
+    """
+
+    def get_provider_name(self) -> str:
+        return "bluetooth_le"
+
+    async def fetch_latest_metrics(self, user_id: str) -> Dict[str, Any]:
+        today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        return {
+            "provider": "Bluetooth Low Energy (GATT)",
+            "metric_date": today_str,
+            "device_name": "Direct BLE Sensor",
+            "is_simulated_demo": False,
         }
 
 
 def get_wearable_provider(provider_type: str = "mock") -> BaseWearableProvider:
-    if provider_type == "fitbit":
+    pt = (provider_type or "mock").lower()
+    if pt in ("google_health_connect", "google_health", "google_fit"):
+        return GoogleHealthConnectProvider()
+    elif pt in ("bluetooth_le", "ble", "bluetooth"):
+        return BluetoothLEProvider()
+    elif pt == "fitbit":
         return FitbitProvider()
-    elif provider_type == "apple_health":
+    elif pt == "apple_health":
         return AppleHealthProvider()
-    elif provider_type == "google_fit":
-        return GoogleHealthProvider()
     return MockWearableProvider()

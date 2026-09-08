@@ -41,26 +41,45 @@ class FacialAnalysisEngine:
             np_img = np.array(image)
         except Exception as exc:
             logger.warning(f"Failed to decode facial frame: {exc}")
-            return cls._fallback_response("No face detected — Position your face inside the frame")
+            return cls._fallback_response("No face detected — Position your face inside the frame", status="invalid_frame")
 
         height, width, _ = np_img.shape
         if height < 40 or width < 40:
-            return cls._fallback_response("No face detected — Low resolution or poor lighting")
+            return cls._fallback_response("No face detected — Low resolution or poor lighting", status="invalid_frame")
 
         if not OPENCV_AVAILABLE:
-            return cls._fallback_response("Computer vision module unavailable")
+            return cls._fallback_response("Computer vision module unavailable", status="invalid_frame")
 
         try:
             gray = cv2.cvtColor(np_img, cv2.COLOR_RGB2GRAY)
+            
+            # luminance validation
+            luminance = float(np.mean(gray))
+            contrast = float(np.std(gray))
+            lum_norm = min(1.0, luminance / 128.0 if luminance < 128.0 else (255.0 - luminance) / 128.0)
+            cont_norm = min(1.0, contrast / 64.0)
+            frame_quality = round((lum_norm + cont_norm) / 2.0, 2)
+            
+            if luminance < 40.0:
+                return cls._fallback_response("Frame too dark", status="low_light", frame_quality=frame_quality)
+            
             face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
             faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=4, minSize=(40, 40))
 
             if len(faces) == 0:
                 # Try with slightly more sensitive scaleFactor
                 faces = face_cascade.detectMultiScale(gray, scaleFactor=1.05, minNeighbors=3, minSize=(30, 30))
-
+                
             if len(faces) == 0:
-                return cls._fallback_response("No face detected — Position your face inside the frame")
+                # Fallback to alt2 cascade
+                alt2_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_alt2.xml")
+                faces = alt2_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=4, minSize=(40, 40))
+
+            face_count = len(faces)
+            if face_count == 0:
+                return cls._fallback_response("No face detected — Position your face inside the frame", status="no_face", face_count=0, frame_quality=frame_quality)
+
+            status_code = "multiple_faces" if face_count > 1 else "success"
 
             # Sort by area to pick largest face
             faces = sorted(faces, key=lambda f: f[2] * f[3], reverse=True)
@@ -113,6 +132,9 @@ class FacialAnalysisEngine:
                 detected_expression = "Calm / Neutral"
 
             return {
+                "status": status_code,
+                "face_count": face_count,
+                "frame_quality": frame_quality,
                 "face_detected": True,
                 "detected_expression": detected_expression,
                 "confidence": confidence,
@@ -129,11 +151,14 @@ class FacialAnalysisEngine:
 
         except Exception as e:
             logger.warning(f"Face analysis exception: {e}")
-            return cls._fallback_response("No face detected — Position your face inside the frame")
+            return cls._fallback_response("No face detected — Position your face inside the frame", status="invalid_frame")
 
     @classmethod
-    def _fallback_response(cls, reason: str) -> Dict[str, Any]:
+    def _fallback_response(cls, reason: str, status: str = "no_face", face_count: int = 0, frame_quality: float = 0.0) -> Dict[str, Any]:
         return {
+            "status": status,
+            "face_count": face_count,
+            "frame_quality": frame_quality,
             "face_detected": False,
             "detected_expression": reason,
             "confidence": 0.0,

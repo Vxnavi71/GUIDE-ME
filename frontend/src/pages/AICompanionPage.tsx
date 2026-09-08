@@ -29,6 +29,8 @@ import {
 } from 'lucide-react';
 import { ApiService } from '../services/api';
 import { MarkdownRenderer } from '../components/MarkdownRenderer';
+import { useConsent } from '../contexts/ConsentContext';
+import { useToast } from '../components/ToastNotification';
 
 interface PendingAction {
   action_id: string;
@@ -61,9 +63,24 @@ export const AICompanionPage: React.FC = () => {
   const [userProfile, setUserProfile] = useState<any>(null);
   const [dashboardSummary, setDashboardSummary] = useState<any>(null);
 
+  const { consent } = useConsent();
+  const { showToast } = useToast();
+
   // Typing dynamics
   const [trackTyping, setTrackTyping] = useState(false);
-  const [typingStats, setTypingStats] = useState({ keyCount: 0, backspaces: 0 });
+  const [typingStats, setTypingStats] = useState({ keyCount: 0, backspaces: 0, wpm: 0 });
+  const typingStartTimeRef = useRef<number | null>(null);
+  const lastKeyTimeRef = useRef<number | null>(null);
+  const pauseCountRef = useRef<number>(0);
+  const keyCountRef = useRef<number>(0);
+  const backspaceCountRef = useRef<number>(0);
+
+  // Automatically enable typing tracking when user consent is granted
+  useEffect(() => {
+    if (consent?.typing_dynamics_consent) {
+      setTrackTyping(true);
+    }
+  }, [consent?.typing_dynamics_consent]);
 
   // Voice state
   const [isListening, setIsListening] = useState(false);
@@ -180,8 +197,9 @@ export const AICompanionPage: React.FC = () => {
       setStreamingText('');
       setActiveToolInfo(null);
       setSidebarOpen(false);
+      showToast('Started new reflection session', 'success');
     } catch (e) {
-      alert('Could not start a new session.');
+      showToast('Could not start a new session.', 'error');
     }
   };
 
@@ -201,17 +219,31 @@ export const AICompanionPage: React.FC = () => {
           setMessages([]);
         }
       }
+      showToast('Conversation session deleted.', 'info');
     } catch (err) {
-      alert('Could not delete session.');
+      showToast('Could not delete session.', 'error');
     }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (!trackTyping) return;
+    const now = Date.now();
+    if (!typingStartTimeRef.current) {
+      typingStartTimeRef.current = now;
+    }
+    if (lastKeyTimeRef.current && (now - lastKeyTimeRef.current > 1200)) {
+      pauseCountRef.current += 1;
+    }
+    lastKeyTimeRef.current = now;
+
     if (e.key === 'Backspace') {
+      backspaceCountRef.current += 1;
       setTypingStats((prev) => ({ ...prev, backspaces: prev.backspaces + 1 }));
-    } else {
-      setTypingStats((prev) => ({ ...prev, keyCount: prev.keyCount + 1 }));
+    } else if (e.key.length === 1) {
+      keyCountRef.current += 1;
+      const durationMin = (now - (typingStartTimeRef.current || now)) / 60000;
+      const currentWpm = durationMin > 0.01 ? Math.min(Math.round((keyCountRef.current / 5) / durationMin), 250) : 0;
+      setTypingStats((prev) => ({ ...prev, keyCount: prev.keyCount + 1, wpm: currentWpm }));
     }
   };
 
@@ -220,6 +252,33 @@ export const AICompanionPage: React.FC = () => {
     if (e) e.preventDefault();
     const textToSend = (overrideText || input).trim();
     if (!textToSend || loading) return;
+
+    // Calculate typing dynamics payload
+    let typingDynamicsPayload: any = undefined;
+    if (trackTyping && keyCountRef.current > 0) {
+      const now = Date.now();
+      const startTime = typingStartTimeRef.current || now;
+      const durationMs = Math.max(now - startTime, 500);
+      const minutes = durationMs / 60000;
+      const wpm = Math.min(Math.round((keyCountRef.current / 5) / Math.max(minutes, 0.02)), 250);
+      const totalKeys = keyCountRef.current + backspaceCountRef.current;
+      const backspaceRate = totalKeys > 0 ? Number((backspaceCountRef.current / totalKeys).toFixed(2)) : 0;
+
+      typingDynamicsPayload = {
+        typing_speed_wpm: wpm,
+        backspace_rate: backspaceRate,
+        pause_frequency: pauseCountRef.current,
+        session_duration_ms: durationMs,
+      };
+    }
+
+    // Reset typing counters
+    typingStartTimeRef.current = null;
+    lastKeyTimeRef.current = null;
+    pauseCountRef.current = 0;
+    keyCountRef.current = 0;
+    backspaceCountRef.current = 0;
+    setTypingStats({ keyCount: 0, backspaces: 0, wpm: 0 });
 
     setInput('');
     setLoading(true);
@@ -276,7 +335,7 @@ export const AICompanionPage: React.FC = () => {
             speakText(finalMsg.content, finalMsg.id);
           }
         }
-      });
+      }, typingDynamicsPayload);
 
       // Refresh memory list & session summaries
       loadMemories();
@@ -285,7 +344,7 @@ export const AICompanionPage: React.FC = () => {
     } catch (err: any) {
       console.warn('Streaming error; attempting non-streaming fallback:', err);
       try {
-        const fallbackMsg = await ApiService.sendChatMessage(textToSend, activeConvId || undefined);
+        const fallbackMsg = await ApiService.sendChatMessage(textToSend, activeConvId || undefined, typingDynamicsPayload);
         setMessages((prev) => [...prev, fallbackMsg]);
         if (autoSpeak && fallbackMsg?.content) {
           speakText(fallbackMsg.content, fallbackMsg.id);
@@ -307,7 +366,6 @@ export const AICompanionPage: React.FC = () => {
       setLoading(false);
       setStreamingText('');
       setActiveToolInfo(null);
-      setTypingStats({ keyCount: 0, backspaces: 0 });
     }
   };
 
@@ -329,7 +387,7 @@ export const AICompanionPage: React.FC = () => {
         },
       ]);
     } catch (err: any) {
-      alert(err.message || 'Action confirmation failed.');
+      showToast(err.message || 'Action confirmation failed.', 'error');
     }
   };
 
@@ -358,7 +416,7 @@ export const AICompanionPage: React.FC = () => {
   const toggleListening = () => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      alert('Speech recognition is not supported in this browser. Please use Chrome, Edge, or Safari.');
+      showToast('Speech recognition is not supported in this browser. Please use Chrome, Edge, or Safari.', 'warning');
       return;
     }
 
@@ -399,7 +457,7 @@ export const AICompanionPage: React.FC = () => {
   // Text-to-Speech (TTS)
   const speakText = (text: string, msgId: string) => {
     if (!('speechSynthesis' in window)) {
-      alert('Text-to-speech is not supported in this browser.');
+      showToast('Text-to-speech is not supported in this browser.', 'warning');
       return;
     }
 
@@ -437,8 +495,9 @@ export const AICompanionPage: React.FC = () => {
       setNewMemoryKey('');
       setNewMemoryContent('');
       setShowAddMemory(false);
+      showToast('Memory insight saved.', 'success');
     } catch (e) {
-      alert('Could not add memory.');
+      showToast('Could not add memory.', 'error');
     }
   };
 
@@ -446,8 +505,9 @@ export const AICompanionPage: React.FC = () => {
     try {
       await ApiService.deleteMemory(id);
       setMemories((prev) => prev.filter((m) => m.id !== id));
+      showToast('Memory item removed.', 'info');
     } catch (e) {
-      alert('Could not delete memory item.');
+      showToast('Could not delete memory item.', 'error');
     }
   };
 
@@ -458,8 +518,9 @@ export const AICompanionPage: React.FC = () => {
       setSpeakingMsgId(null);
       await ApiService.clearCompanionChat();
       setMessages([]);
+      showToast('Session messages cleared.', 'info');
     } catch (e) {
-      alert('Could not clear chat history.');
+      showToast('Could not clear chat history.', 'error');
     }
   };
 

@@ -25,8 +25,10 @@ async def process_facial_frame(
     # Privacy verification: user must have enabled camera consent in their privacy center
     consent = current_user.consent
     if consent and not consent.camera_consent:
-        # We still allow demo evaluation if user triggered it via UI, but document consent requirement
-        pass
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Camera consent not granted. Enable in Privacy Center."
+        )
 
     analysis = FacialAnalysisEngine.analyze_frame_base64(payload.image_base64)
     return analysis

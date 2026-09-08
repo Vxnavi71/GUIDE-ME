@@ -1,28 +1,22 @@
 export class ApiService {
   public static getApiBaseUrl(): string {
-    const isProductionWeb =
-      import.meta.env.PROD &&
-      typeof window !== 'undefined' &&
-      window.location.hostname !== 'localhost' &&
-      window.location.hostname !== '127.0.0.1';
-
     const custom = localStorage.getItem('guideme_custom_api_url');
     if (custom && custom.trim()) {
       const trimmed = custom.trim().replace(/\/+$/, '');
+      // Automatically purge stale local/LAN development IP overrides
       if (
-        isProductionWeb &&
-        (trimmed.includes('localhost') ||
-          trimmed.includes('127.0.0.1') ||
-          trimmed.includes('192.168.') ||
-          trimmed.includes('10.') ||
-          trimmed.includes('172.'))
+        trimmed.includes('localhost') ||
+        trimmed.includes('127.0.0.1') ||
+        trimmed.includes('192.168.') ||
+        trimmed.includes('10.') ||
+        trimmed.includes('172.')
       ) {
         localStorage.removeItem('guideme_custom_api_url');
       } else {
         return trimmed;
       }
     }
-    return (import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/v1').replace(/\/+$/, '');
+    return (import.meta.env.VITE_API_BASE_URL || 'https://guide-me-kja5.onrender.com/api/v1').replace(/\/+$/, '');
   }
 
   public static setCustomApiBaseUrl(url: string): void {
@@ -249,7 +243,8 @@ export class ApiService {
   public static async streamChatMessage(
     content: string,
     conversationId: string | undefined,
-    onChunk: (event: any) => void
+    onChunk: (event: any) => void,
+    typingDynamics?: any
   ): Promise<void> {
     const token = this.getToken();
     const headers: Record<string, string> = {
@@ -263,7 +258,7 @@ export class ApiService {
     const response = await fetch(`${apiBase}/companion/chat/stream`, {
       method: 'POST',
       headers,
-      body: JSON.stringify({ content, conversation_id: conversationId }),
+      body: JSON.stringify({ content, conversation_id: conversationId, typing_dynamics: typingDynamics }),
     });
 
     if (!response.ok) {
@@ -396,8 +391,30 @@ export class ApiService {
     });
   }
 
-  public static async syncWearables(): Promise<any> {
+  public static async syncWearables(data?: any): Promise<any> {
     return this.request<any>('/wellness/sync-wearables', {
+      method: 'POST',
+      body: data ? JSON.stringify(data) : undefined,
+    });
+  }
+
+  public static async getWearableProviders(): Promise<any[]> {
+    return this.request<any[]>('/wearables/providers');
+  }
+
+  public static async getWearableStatus(): Promise<any[]> {
+    return this.request<any[]>('/wearables/status');
+  }
+
+  public static async pairWearableDevice(data: { provider: string; device_name: string; device_id?: string }): Promise<any> {
+    return this.request<any>('/wearables/pair', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  public static async disconnectWearable(provider: string): Promise<any> {
+    return this.request<any>(`/wearables/disconnect?provider=${encodeURIComponent(provider)}`, {
       method: 'POST',
     });
   }
@@ -497,8 +514,31 @@ export class ApiService {
   // ==========================================
   // Career Guidance
   // ==========================================
-  public static async getCareerRecommendations(): Promise<any[]> {
+  public static async getCareerRecommendations(preferences?: {
+    education?: string;
+    skills?: string[];
+    interests?: string[];
+    goals?: string[];
+  }): Promise<any[]> {
+    if (preferences) {
+      return this.request<any[]>('/career/recommendations', {
+        method: 'POST',
+        body: JSON.stringify(preferences),
+      });
+    }
     return this.request<any[]>('/career/recommendations');
+  }
+
+  public static async saveCareerPreferences(preferences: {
+    education?: string;
+    skills?: string[];
+    interests?: string[];
+    goals?: string[];
+  }): Promise<any> {
+    return this.request<any>('/career/preferences', {
+      method: 'POST',
+      body: JSON.stringify(preferences),
+    });
   }
 
   // ==========================================

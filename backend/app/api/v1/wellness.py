@@ -51,15 +51,25 @@ async def log_wellness_metric(
 
 @router.post("/sync-wearables", response_model=WellnessMetricResponse)
 async def sync_wearable_device(
+    payload: Optional[WellnessMetricCreate] = None,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_async_db),
 ):
-    provider = get_wearable_provider("mock")
+    repo = WellnessRepository(db)
+    audit = AuditRepository(db)
+
+    if payload:
+        data = payload.model_dump(exclude_unset=True)
+        metric = await repo.log_metric(current_user.id, data)
+        await audit.log_action(current_user.id, "SYNC_WEARABLE", "wearables", details={"device": data.get("device_name", "Connected Smartwatch")})
+        return metric
+
+    from app.core.config import settings
+    configured_provider = getattr(settings, "WEARABLE_PROVIDER", "mock")
+    provider = get_wearable_provider(configured_provider)
     data = await provider.fetch_latest_metrics(current_user.id)
 
-    repo = WellnessRepository(db)
     metric = await repo.log_metric(current_user.id, data)
-    audit = AuditRepository(db)
     await audit.log_action(current_user.id, "SYNC_WEARABLE", "wearables", details={"device": data.get("device_name")})
     return metric
 

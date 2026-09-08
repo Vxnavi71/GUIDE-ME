@@ -13,8 +13,10 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { ApiService } from '../services/api';
+import { useToast } from '../components/ToastNotification';
 
 export const GoalsPage: React.FC = () => {
+  const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState<'goals' | 'habits'>('habits');
 
   // Goals State
@@ -61,8 +63,9 @@ export const GoalsPage: React.FC = () => {
     try {
       const updatedGoal = await ApiService.toggleMilestone(milestoneId);
       setGoals((prev) => prev.map((g) => (g.id === updatedGoal.id ? updatedGoal : g)));
+      showToast('Milestone status updated', 'success');
     } catch (e) {
-      alert('Could not update milestone.');
+      showToast('Could not update milestone.', 'error');
     }
   };
 
@@ -79,6 +82,7 @@ export const GoalsPage: React.FC = () => {
           category: goalCategory,
         });
         setGoals((prev) => prev.map((g) => (g.id === updated.id ? updated : g)));
+        showToast('Goal updated successfully', 'success');
       } else {
         const validMilestones = milestoneInputs.filter((m) => m.trim());
         const newGoal = await ApiService.createGoal({
@@ -88,10 +92,11 @@ export const GoalsPage: React.FC = () => {
           milestones: validMilestones,
         });
         setGoals([newGoal, ...goals]);
+        showToast('New goal initialized', 'success');
       }
       closeGoalModal();
     } catch (e) {
-      alert('Could not save goal.');
+      showToast('Could not save goal.', 'error');
     } finally {
       setLoading(false);
     }
@@ -102,8 +107,9 @@ export const GoalsPage: React.FC = () => {
     try {
       await ApiService.deleteGoal(id);
       setGoals((prev) => prev.filter((g) => g.id !== id));
+      showToast('Goal removed.', 'info');
     } catch (e) {
-      alert('Could not delete goal.');
+      showToast('Could not delete goal.', 'error');
     }
   };
 
@@ -135,8 +141,9 @@ export const GoalsPage: React.FC = () => {
     try {
       const updated = await ApiService.toggleHabit(habitId);
       setHabits((prev) => prev.map((h) => (h.id === updated.id ? updated : h)));
+      showToast('Habit streak updated', 'success');
     } catch (e) {
-      alert('Could not toggle habit completion.');
+      showToast('Could not toggle habit completion.', 'error');
     }
   };
 
@@ -154,6 +161,7 @@ export const GoalsPage: React.FC = () => {
           target_per_day: habitTargetPerDay,
         });
         setHabits((prev) => prev.map((h) => (h.id === updated.id ? updated : h)));
+        showToast('Habit updated', 'success');
       } else {
         const created = await ApiService.createHabit({
           title: habitTitle,
@@ -163,10 +171,11 @@ export const GoalsPage: React.FC = () => {
           target_per_day: habitTargetPerDay,
         });
         setHabits([created, ...habits]);
+        showToast('New positive habit tracked', 'success');
       }
       closeHabitModal();
     } catch (e) {
-      alert('Could not save habit.');
+      showToast('Could not save habit.', 'error');
     } finally {
       setLoading(false);
     }
@@ -177,8 +186,9 @@ export const GoalsPage: React.FC = () => {
     try {
       await ApiService.deleteHabit(id);
       setHabits((prev) => prev.filter((h) => h.id !== id));
+      showToast('Habit removed.', 'info');
     } catch (e) {
-      alert('Could not delete habit.');
+      showToast('Could not delete habit.', 'error');
     }
   };
 

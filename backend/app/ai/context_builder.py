@@ -25,6 +25,8 @@ class AIContextBuilder:
         sleep_hours: Optional[float] = None,
         screen_time_hours: Optional[float] = None,
         active_memories: Optional[List[str]] = None,
+        typing_dynamics: Optional[Dict[str, Any]] = None,
+        facial_expression: Optional[str] = None,
     ) -> str:
         prompt_parts = [
             "You are GUIDE ME's AI Companion, an empathetic, evidence-informed, and calm personal wellness guide.",
@@ -67,6 +69,22 @@ class AIContextBuilder:
 
         if active_memories:
             prompt_parts.append(f"\nRemembered Preferences & Context (Explicitly consented by user):\n" + "\n".join([f"- {m}" for m in active_memories]))
+
+        if typing_dynamics:
+            wpm = typing_dynamics.get('wpm', 'unknown')
+            bs_rate = typing_dynamics.get('backspace_rate', 'unknown')
+            interpretation = "User typing pattern indicates possible cognitive load or emotion."
+            if isinstance(wpm, (int, float)) and isinstance(bs_rate, (int, float)):
+                if wpm > 60 and bs_rate > 10:
+                    interpretation = "Fast but erratic typing; possible anxiety or frustration."
+                elif wpm < 30:
+                    interpretation = "Slow typing; possible fatigue, hesitation, or depression."
+                else:
+                    interpretation = "Normal baseline typing pattern."
+            prompt_parts.append(f"\nTyping Behavior Observations: WPM: {wpm}, Backspace rate: {bs_rate}% — {interpretation}")
+
+        if facial_expression:
+            prompt_parts.append(f"\nCurrent Facial Expression Signal: {facial_expression}")
 
         return "\n".join(prompt_parts)
 

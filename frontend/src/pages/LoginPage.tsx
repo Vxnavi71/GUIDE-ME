@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Leaf, Lock, Mail, ArrowRight, Sparkles } from 'lucide-react';
+import { Leaf, Lock, Mail, ArrowRight, Sparkles, Server } from 'lucide-react';
 import { ApiService } from '../services/api';
 import { ThemeToggle } from '../components/ThemeToggle';
+import { ServerConfigModal } from '../components/ServerConfigModal';
 
 export const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showServerModal, setShowServerModal] = useState(false);
   const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -32,9 +34,19 @@ export const LoginPage: React.FC = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-earth-50 dark:bg-forest-950 transition-colors">
-      <div className="absolute top-4 right-4">
+      <div className="absolute top-4 right-4 flex items-center gap-2">
+        <button
+          onClick={() => setShowServerModal(true)}
+          className="p-2 rounded-xl border border-earth-200 dark:border-forest-800 bg-white dark:bg-forest-900 hover:bg-earth-100 dark:hover:bg-forest-800 text-earth-600 dark:text-sage-300 transition-colors shadow-xs flex items-center gap-1.5 text-xs font-medium"
+          title="Configure Server Connection"
+        >
+          <Server className="w-4 h-4 text-sage-600 dark:text-sage-400" />
+          <span className="hidden sm:inline">Server</span>
+        </button>
         <ThemeToggle />
       </div>
+
+      <ServerConfigModal isOpen={showServerModal} onClose={() => setShowServerModal(false)} />
 
       <div className="w-full max-w-md bg-white dark:bg-forest-900 rounded-2xl shadow-sm border border-earth-200 dark:border-forest-800 p-8">
         <div className="text-center mb-6">

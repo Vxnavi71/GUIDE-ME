@@ -11,13 +11,19 @@ import {
   Info,
 } from 'lucide-react';
 import { ApiService } from '../services/api';
+import { useConsent } from '../contexts/ConsentContext';
+import { useToast } from '../components/ToastNotification';
 
 export const FacialAnalysisPage: React.FC = () => {
+  const { consent, updateConsent } = useConsent();
+  const { showToast } = useToast();
+
   const [cameraActive, setCameraActive] = useState(false);
   const [permissionState, setPermissionState] = useState<'idle' | 'granted' | 'denied'>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
-  const [autoSample, setAutoSample] = useState(false);
+  const [autoSample, setAutoSample] = useState(true);
+  const [backgroundPaused, setBackgroundPaused] = useState(false);
 
   const [analysisResult, setAnalysisResult] = useState<any>(null);
 
@@ -31,6 +37,44 @@ export const FacialAnalysisPage: React.FC = () => {
       stopCamera();
     };
   }, []);
+
+  // Automatic camera activation if consent granted and permission available
+  useEffect(() => {
+    if (consent.camera_consent && !cameraActive && !backgroundPaused) {
+      if (navigator.permissions && navigator.permissions.query) {
+        navigator.permissions.query({ name: 'camera' as any }).then((res) => {
+          if (res.state === 'granted') {
+            startCamera();
+          }
+        }).catch(() => {});
+      }
+    } else if (!consent.camera_consent && cameraActive) {
+      stopCamera();
+      showToast('Camera stopped: privacy consent is currently disabled.', 'info');
+    }
+  }, [consent.camera_consent]);
+
+  // Foreground-only safeguard: pause camera when app is backgrounded
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        if (streamRef.current) {
+          stopCamera();
+          setBackgroundPaused(true);
+        }
+      } else {
+        if (backgroundPaused && consent.camera_consent) {
+          setBackgroundPaused(false);
+          startCamera();
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [backgroundPaused, consent.camera_consent, cameraActive]);
 
   // Periodic sampler when camera is active and autoSample is enabled
   useEffect(() => {
@@ -52,6 +96,11 @@ export const FacialAnalysisPage: React.FC = () => {
         throw new Error('Your browser does not support web camera access.');
       }
 
+      // If consent wasn't recorded, update consent state
+      if (!consent.camera_consent) {
+        await updateConsent('camera_consent', true);
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
         audio: false,
@@ -63,15 +112,17 @@ export const FacialAnalysisPage: React.FC = () => {
       }
       setCameraActive(true);
       setPermissionState('granted');
+      setBackgroundPaused(false);
+      showToast('Camera feed initialized. Analyzing facial expression proxies in-memory.', 'info');
     } catch (err: any) {
       console.error('Camera access error:', err);
       setPermissionState('denied');
       setCameraActive(false);
-      setErrorMessage(
-        err.name === 'NotAllowedError'
-          ? 'Camera permission was denied. Please allow camera access in your browser address bar to enable facial signal analysis.'
-          : err.message || 'Unable to access camera.'
-      );
+      const msg = err.name === 'NotAllowedError'
+        ? 'Camera permission was denied. Please allow camera access in your browser address bar to enable facial signal analysis.'
+        : err.message || 'Unable to access camera.';
+      setErrorMessage(msg);
+      showToast(msg, 'error');
     }
   };
 
@@ -84,7 +135,6 @@ export const FacialAnalysisPage: React.FC = () => {
       videoRef.current.srcObject = null;
     }
     setCameraActive(false);
-    setAutoSample(false);
     setAnalysisResult(null);
   };
 
@@ -106,7 +156,12 @@ export const FacialAnalysisPage: React.FC = () => {
       const res = await ApiService.processFacialFrame(base64Data);
       setAnalysisResult(res);
     } catch (e: any) {
-      console.warn('Facial analysis inference notice:', e);
+      if (e.message?.includes('403') || e.message?.includes('consent')) {
+        stopCamera();
+        showToast('Camera consent required to process facial frames.', 'warning');
+      } else {
+        console.warn('Facial analysis inference notice:', e);
+      }
     } finally {
       setAnalyzing(false);
     }
@@ -162,6 +217,47 @@ export const FacialAnalysisPage: React.FC = () => {
               <strong className="block font-semibold">Camera Access Notice:</strong>
               <span>{errorMessage}</span>
             </div>
+          </div>
+        )}
+
+        {/* Active Camera Live / Paused Status Badge */}
+        {cameraActive && (
+          <div className="mt-4 flex items-center justify-between p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-800 dark:text-emerald-200">
+            <div className="flex items-center gap-2">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+              </span>
+              <span className="font-semibold">Live Camera Active · Real-Time Muscular Landmark Extraction</span>
+            </div>
+            <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">RAM-only analysis · No video stored</span>
+          </div>
+        )}
+
+        {backgroundPaused && (
+          <div className="mt-4 flex items-center gap-2 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-200">
+            <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+            <span>App is backgrounded · Camera paused automatically to protect privacy and respect OS background policy.</span>
+          </div>
+        )}
+
+        {/* Edge Case Warning Banners */}
+        {analysisResult?.status === 'low_light' && (
+          <div className="mt-3 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 text-amber-900 dark:text-amber-200 text-xs flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+            <span>Low ambient illumination detected. Please brighten your room for accurate expression signal estimation.</span>
+          </div>
+        )}
+        {analysisResult?.status === 'multiple_faces' && (
+          <div className="mt-3 p-3 rounded-xl bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-900 text-sky-900 dark:text-sky-200 text-xs flex items-center gap-2">
+            <Info className="w-4 h-4 text-sky-600 flex-shrink-0" />
+            <span>Multiple faces detected ({analysisResult.face_count || 2}). Focus locked onto primary subject.</span>
+          </div>
+        )}
+        {analysisResult?.status === 'no_face' && cameraActive && (
+          <div className="mt-3 p-3 rounded-xl bg-earth-100 dark:bg-forest-800 text-earth-700 dark:text-sage-300 text-xs flex items-center gap-2">
+            <Info className="w-4 h-4 text-sage-600 flex-shrink-0" />
+            <span>No face detected in viewfinder. Align your face within the dashed viewfinder boundary.</span>
           </div>
         )}
       </div>

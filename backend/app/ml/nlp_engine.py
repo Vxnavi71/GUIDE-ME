@@ -67,10 +67,26 @@ class NLPEmotionJournalEngine:
             }
 
         cleaned = text.lower()
-        words = re.findall(r"\b[a-z]{3,}\b", cleaned)
+        # Use a regex that captures words with apostrophes and length >= 2 to include "no"
+        words = re.findall(r"\b[a-z']{2,}\b", cleaned)
 
-        pos_hits = sum(1 for w in words if w in cls.POSITIVE_WORDS)
-        neg_hits = sum(1 for w in words if w in cls.NEGATIVE_WORDS)
+        pos_hits = 0
+        neg_hits = 0
+        negation_words = {"not", "no", "never", "neither", "nor", "don't", "doesn't", "didn't", "can't", "won't", "isn't", "aren't", "wasn't", "weren't"}
+
+        for i, w in enumerate(words):
+            if w in cls.POSITIVE_WORDS or w in cls.NEGATIVE_WORDS:
+                is_negated = any(words[j] in negation_words for j in range(max(0, i - 3), i))
+                if w in cls.POSITIVE_WORDS:
+                    if is_negated:
+                        neg_hits += 1
+                    else:
+                        pos_hits += 1
+                elif w in cls.NEGATIVE_WORDS:
+                    if is_negated:
+                        pos_hits += 1
+                    else:
+                        neg_hits += 1
 
         total_emotional = pos_hits + neg_hits
         if total_emotional > 0:

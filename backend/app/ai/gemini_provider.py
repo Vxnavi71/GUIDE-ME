@@ -37,7 +37,7 @@ class GeminiProvider(BaseLLMProvider):
         Preserves sliding window (last 14 messages).
         """
         contents: List[Dict[str, Any]] = []
-        recent_history = conversation_history[-14:] if len(conversation_history) > 14 else conversation_history
+        recent_history = conversation_history[-20:] if len(conversation_history) > 20 else conversation_history
 
         for item in recent_history:
             role = item.get("role")

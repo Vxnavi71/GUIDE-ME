@@ -18,13 +18,23 @@ import {
 } from 'lucide-react';
 import { ApiService } from '../services/api';
 import { CircularProgressRing } from '../components/CircularProgressRing';
+import { NativeBridgeService } from '../services/nativeBridge';
+import { useToast } from '../components/ToastNotification';
+import { RefreshCw, ExternalLink, ShieldCheck } from 'lucide-react';
 
 export const DigitalWellbeingPage: React.FC = () => {
+  const { showToast } = useToast();
+
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [targetLimit, setTargetLimit] = useState(300);
   const [showSettings, setShowSettings] = useState(false);
   const [showLogModal, setShowLogModal] = useState(false);
+
+  // Android Native Integration State
+  const [isAndroid, setIsAndroid] = useState(NativeBridgeService.isNativeAndroid());
+  const [hasUsagePermission, setHasUsagePermission] = useState(false);
+  const [syncingAndroid, setSyncingAndroid] = useState(false);
 
   // Manual logging form state
   const [manualScreenTime, setManualScreenTime] = useState(180);
@@ -38,6 +48,15 @@ export const DigitalWellbeingPage: React.FC = () => {
 
   useEffect(() => {
     loadWellbeing();
+    if (NativeBridgeService.isNativeAndroid()) {
+      setIsAndroid(true);
+      NativeBridgeService.checkUsagePermission().then((granted) => {
+        setHasUsagePermission(granted);
+        if (granted) {
+          syncFromAndroid();
+        }
+      });
+    }
   }, []);
 
   const loadWellbeing = async () => {
@@ -55,6 +74,31 @@ export const DigitalWellbeingPage: React.FC = () => {
     }
   };
 
+  const syncFromAndroid = async () => {
+    if (!NativeBridgeService.isNativeAndroid()) return;
+    setSyncingAndroid(true);
+    try {
+      const stats = await NativeBridgeService.fetchAndroidUsageStats();
+      const updated = await ApiService.updateDigitalWellbeing(stats);
+      setData(updated);
+      showToast('Successfully imported screen time from Android UsageStatsManager', 'success');
+    } catch (err: any) {
+      console.warn('Android UsageStats sync notice:', err);
+      showToast('Could not query Android usage stats: ' + (err.message || 'Permission needed'), 'error');
+    } finally {
+      setSyncingAndroid(false);
+    }
+  };
+
+  const handleRequestAndroidPermission = async () => {
+    try {
+      await NativeBridgeService.requestUsagePermission();
+      showToast('Opening Android Usage Access settings. Please toggle GuideMe to Allowed and return.', 'info');
+    } catch (e: any) {
+      showToast(e.message || 'Unable to open usage settings.', 'error');
+    }
+  };
+
   const handleUpdateLimit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -64,8 +108,9 @@ export const DigitalWellbeingPage: React.FC = () => {
       });
       setData(updated);
       setShowSettings(false);
+      showToast('Screen time limit updated', 'success');
     } catch (e) {
-      alert('Could not update screen time limit');
+      showToast('Could not update screen time limit', 'error');
     } finally {
       setLoading(false);
     }
@@ -80,6 +125,7 @@ export const DigitalWellbeingPage: React.FC = () => {
         focus_time_minutes: manualFocusTime,
         notification_count: manualNotifications,
         night_screen_minutes: manualNightScreen,
+        source: 'manual',
         categories: {
           productive: manualProductive,
           communication: manualComm,
@@ -89,8 +135,9 @@ export const DigitalWellbeingPage: React.FC = () => {
       });
       setData(updated);
       setShowLogModal(false);
+      showToast('Screen time observation saved', 'success');
     } catch (e) {
-      alert('Could not log screen time data');
+      showToast('Could not log screen time data', 'error');
     } finally {
       setLoading(false);
     }
@@ -140,17 +187,28 @@ export const DigitalWellbeingPage: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2.5 flex-wrap">
           {isConnected ? (
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/40 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span>Data Mode: Device Connected</span>
+              <span>Data Source: {data?.source === 'android_usage_stats' ? 'Android UsageStats' : 'Connected'}</span>
             </div>
           ) : (
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-earth-100 dark:bg-forest-800 border border-earth-200 dark:border-forest-700 text-[11px] font-semibold text-earth-600 dark:text-sage-400">
               <span className="w-2 h-2 rounded-full bg-earth-400"></span>
-              <span>Data Mode: Device Not Connected</span>
+              <span>Data Mode: {isAndroid ? (hasUsagePermission ? 'Ready to Sync' : 'Permission Required') : 'Manual Mode'}</span>
             </div>
+          )}
+
+          {isAndroid && (
+            <button
+              onClick={hasUsagePermission ? syncFromAndroid : handleRequestAndroidPermission}
+              disabled={syncingAndroid}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-forest-900 dark:bg-forest-800 text-white text-xs font-semibold hover:bg-forest-800 dark:hover:bg-forest-700 transition-colors shadow-sm disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${syncingAndroid ? 'animate-spin' : ''}`} />
+              <span>{hasUsagePermission ? (syncingAndroid ? 'Syncing...' : 'Sync Android Usage') : 'Grant Usage Access'}</span>
+            </button>
           )}
 
           <button
@@ -170,6 +228,43 @@ export const DigitalWellbeingPage: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* Android Permission Guidance Banner */}
+      {isAndroid && !hasUsagePermission && (
+        <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 text-amber-900 dark:text-amber-200 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+          <div className="flex items-start gap-2.5">
+            <ShieldCheck className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <strong className="block font-semibold text-sm">System Usage Access Required</strong>
+              <p className="text-[11px] text-amber-800 dark:text-amber-300 mt-0.5 max-w-xl">
+                To read your real daily screen time, app foreground duration, and category splits automatically on Android, GUIDE ME requires Usage Access permission.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={handleRequestAndroidPermission}
+            className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs transition-colors self-start sm:self-auto flex items-center gap-1.5"
+          >
+            <span>Open Android Settings</span>
+            <ExternalLink className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
+      {/* Web Platform Notice */}
+      {!isAndroid && (
+        <div className="p-3.5 rounded-xl bg-earth-100 dark:bg-forest-800/60 border border-earth-200 dark:border-forest-700 text-xs text-earth-700 dark:text-sage-300 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Info className="w-4 h-4 text-sage-600 flex-shrink-0" />
+            <span>
+              <strong>Platform Notice:</strong> Direct OS screen time integration utilizes Android UsageStatsManager on mobile. Browser environments restrict system-wide app monitoring. Manual entry mode is active below.
+            </span>
+          </div>
+          <span className="text-[10px] uppercase font-bold text-earth-500 dark:text-sage-400 bg-white dark:bg-forest-900 px-2 py-0.5 rounded">
+            Browser Environment
+          </span>
+        </div>
+      )}
 
       {/* Screen Time Limit Modal / Drawer */}
       {showSettings && (

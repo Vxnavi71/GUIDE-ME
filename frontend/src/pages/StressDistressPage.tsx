@@ -13,8 +13,10 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { ApiService } from '../services/api';
+import { useToast } from '../components/ToastNotification';
 
 export const StressDistressPage: React.FC = () => {
+  const { showToast } = useToast();
   const [stressData, setStressData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [evaluating, setEvaluating] = useState(false);
@@ -48,8 +50,9 @@ export const StressDistressPage: React.FC = () => {
     try {
       const res = await ApiService.evaluateStress();
       setStressData(res);
+      showToast('Stress assessment recalculated.', 'success');
     } catch (e) {
-      alert('Could not evaluate current stress.');
+      showToast('Could not evaluate current stress.', 'error');
     } finally {
       setEvaluating(false);
     }
@@ -64,8 +67,9 @@ export const StressDistressPage: React.FC = () => {
         symptoms: distressSymptoms,
       });
       setDistressSubmitted(true);
+      showToast('Distress report recorded.', 'success');
     } catch (e) {
-      alert('Could not submit distress report.');
+      showToast('Could not submit distress report.', 'error');
     }
   };
 

@@ -12,8 +12,12 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { ApiService } from '../services/api';
+import { useToast } from '../components/ToastNotification';
+import { useConsent } from '../contexts/ConsentContext';
 
 export const PrivacyCenterPage: React.FC = () => {
+  const { showToast } = useToast();
+  const { updateConsent: updateGlobalConsent } = useConsent();
   const [consent, setConsent] = useState<any>({
     camera_consent: false,
     memory_consent: true,
@@ -44,10 +48,14 @@ export const PrivacyCenterPage: React.FC = () => {
     setSaving(true);
     try {
       await ApiService.updateConsent({ [key]: updated[key] });
+      try {
+        await updateGlobalConsent(key as any, updated[key]);
+      } catch {}
       setSavedSuccess(true);
+      showToast(`${key.replace(/_/g, ' ')} permission updated.`, 'success');
       setTimeout(() => setSavedSuccess(false), 2500);
     } catch (e) {
-      alert('Could not update consent setting.');
+      showToast('Could not update consent setting.', 'error');
     } finally {
       setSaving(false);
     }
@@ -64,8 +72,9 @@ export const PrivacyCenterPage: React.FC = () => {
       a.download = `guideme_personal_export_${new Date().toISOString().slice(0, 10)}.json`;
       a.click();
       URL.revokeObjectURL(url);
+      showToast('Personal data exported successfully.', 'success');
     } catch (e) {
-      alert('Could not export personal data.');
+      showToast('Could not export personal data.', 'error');
     } finally {
       setExporting(false);
     }
@@ -79,10 +88,12 @@ export const PrivacyCenterPage: React.FC = () => {
     ) {
       try {
         await ApiService.deleteAccount();
-        alert('Your account and personal data have been completely erased.');
-        window.location.href = '/login';
+        showToast('Your account and personal data have been completely erased.', 'info');
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 1200);
       } catch (e) {
-        alert('Could not delete account.');
+        showToast('Could not delete account.', 'error');
       }
     }
   };

@@ -186,7 +186,7 @@ class CompanionService:
         self.safety_repo = SafetyRepository(db)
         self.audit_repo = AuditRepository(db)
 
-    async def _assemble_system_prompt(self, user_id: str) -> Tuple[str, Any]:
+    async def _assemble_system_prompt(self, user_id: str, typing_dynamics: Optional[Dict[str, Any]] = None) -> Tuple[str, Any]:
         user = await self.user_repo.get_by_id(user_id)
         user_name = user.profile.preferred_name if user and user.profile else "Friend"
         personality = await self.assess_repo.get_latest_result(user_id)
@@ -237,10 +237,11 @@ class CompanionService:
             sleep_hours=sleep_hours,
             screen_time_hours=screen_time_hours,
             active_memories=mem_texts,
+            typing_dynamics=typing_dynamics,
         )
         return prompt, user
 
-    async def process_message(self, user_id: str, content: str, conversation_id: Optional[str] = None) -> Any:
+    async def process_message(self, user_id: str, content: str, conversation_id: Optional[str] = None, typing_dynamics: Optional[Dict[str, Any]] = None) -> Any:
         conv = None
         if conversation_id:
             conv = await self.conv_repo.get_conversation_by_id(conversation_id, user_id)
@@ -270,8 +271,21 @@ class CompanionService:
             return asst_msg
 
         # 3. Multimodal Context Assembling
-        system_prompt, user = await self._assemble_system_prompt(user_id)
-        history = [{"role": m.sender_role, "content": m.content} for m in conv.messages[-14:]]
+        system_prompt, user = await self._assemble_system_prompt(user_id, typing_dynamics=typing_dynamics)
+        history = [{"role": m.sender_role, "content": m.content} for m in conv.messages[-20:]]
+
+        # Store typing dynamics
+        if typing_dynamics and user and user.consent and getattr(user.consent, "typing_dynamics_consent", False):
+            from app.models.entities import BehavioralSignal
+            signal = BehavioralSignal(
+                user_id=user_id,
+                signal_type="typing_dynamics",
+                typing_speed_wpm=float(typing_dynamics.get("wpm", 55.0)),
+                backspace_rate=float(typing_dynamics.get("backspace_rate", 0.08)),
+                pause_frequency=float(typing_dynamics.get("pause_frequency", 0.15)),
+            )
+            self.db.add(signal)
+            await self.db.flush()
 
         # 4. Invoke LLM Provider with tool dispatching
         provider = get_llm_provider()
@@ -304,7 +318,7 @@ class CompanionService:
         )
         return asst_msg
 
-    async def process_message_stream(self, user_id: str, content: str, conversation_id: Optional[str] = None):
+    async def process_message_stream(self, user_id: str, content: str, conversation_id: Optional[str] = None, typing_dynamics: Optional[Dict[str, Any]] = None):
         """
         Asynchronous generator yielding Server-Sent Events (SSE) for real-time streaming.
         """
@@ -339,8 +353,21 @@ class CompanionService:
             yield f"data: {json.dumps({'type': 'done', 'full_text': safety_eval['intervention_text']})}\n\n"
             return
 
-        system_prompt, user = await self._assemble_system_prompt(user_id)
-        history = [{"role": m.sender_role, "content": m.content} for m in conv.messages[-14:]]
+        system_prompt, user = await self._assemble_system_prompt(user_id, typing_dynamics=typing_dynamics)
+        history = [{"role": m.sender_role, "content": m.content} for m in conv.messages[-20:]]
+
+        # Store typing dynamics
+        if typing_dynamics and user and user.consent and getattr(user.consent, "typing_dynamics_consent", False):
+            from app.models.entities import BehavioralSignal
+            signal = BehavioralSignal(
+                user_id=user_id,
+                signal_type="typing_dynamics",
+                typing_speed_wpm=float(typing_dynamics.get("wpm", 55.0)),
+                backspace_rate=float(typing_dynamics.get("backspace_rate", 0.08)),
+                pause_frequency=float(typing_dynamics.get("pause_frequency", 0.15)),
+            )
+            self.db.add(signal)
+            await self.db.flush()
 
         provider = get_llm_provider()
         from app.ai.gemini_provider import GeminiProvider

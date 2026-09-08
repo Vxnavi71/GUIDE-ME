@@ -38,6 +38,7 @@ async def chat_with_companion(
         user_id=current_user.id,
         content=payload.content,
         conversation_id=payload.conversation_id,
+        typing_dynamics=payload.typing_dynamics,
     )
     return msg
 
@@ -58,6 +59,7 @@ async def stream_chat_with_companion(
             user_id=current_user.id,
             content=payload.content,
             conversation_id=payload.conversation_id,
+            typing_dynamics=payload.typing_dynamics,
         ),
         media_type="text/event-stream",
         headers={

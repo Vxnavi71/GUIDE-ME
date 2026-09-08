@@ -111,9 +111,9 @@ pip install -r requirements.txt
 Open **Git Bash** in the project directory:
 
 ```bash
-cd "GUIDE ME - FINAL"
-```
 
+```
+cd "GUIDE ME - FINAL"
 ### Step 1: Install Dependencies & Seed Database
 ```bash
 # Run the automated Git Bash setup script:
@@ -129,7 +129,8 @@ git push -u origin main
 
 ### Step 2: Start All Application Services
 ```bash
-./scripts/start_all.sh
+
+
 ```
 *This starts both the FastAPI backend and the Vite frontend concurrently in Git Bash.*
 

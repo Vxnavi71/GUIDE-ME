@@ -101,10 +101,10 @@ async def export_personal_data(
                 "tags": j.tags,
                 "created_at": j.created_at.isoformat(),
                 "sentiment_analysis": {
-                    "sentiment_score": j.analysis.sentiment_score if j.analysis else None,
-                    "dominant_emotion": j.analysis.dominant_emotion if j.analysis else None,
-                    "cognitive_distortions": j.analysis.cognitive_distortions if j.analysis else [],
-                } if j.analysis else None,
+                    "sentiment_score": getattr(getattr(j, 'analysis', None), 'sentiment_score', None),
+                    "dominant_emotion": getattr(getattr(j, 'analysis', None), 'dominant_emotion', None),
+                    "cognitive_distortions": getattr(getattr(j, 'analysis', None), 'cognitive_distortions', []),
+                } if getattr(j, 'analysis', None) else None,
             }
             for j in journals
         ],
