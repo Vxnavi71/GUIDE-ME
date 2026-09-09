@@ -12,7 +12,15 @@ class NLPEmotionJournalEngine:
         "happy", "joy", "peace", "calm", "grateful", "gratitude", "accomplished",
         "proud", "energized", "hope", "hopeful", "excited", "content", "love",
         "loving", "clarity", "progress", "growth", "relaxed", "serene", "thriving",
-        "inspired", "balanced", "confident", "supported", "optimistic", "refreshed"
+        "inspired", "balanced", "confident", "supported", "optimistic", "refreshed",
+        # Extended coverage: everyday affect vocabulary the original set missed.
+        "good", "great", "better", "well", "fine", "glad", "pleased", "satisfied",
+        "encouraged", "motivated", "focused", "productive", "capable", "strong",
+        "steady", "rested", "recovered", "healthy", "connected", "appreciated",
+        "valued", "safe", "secure", "comfortable", "curious", "engaged", "delighted",
+        "cheerful", "warm", "kind", "gentle", "patient", "present", "mindful",
+        "achievement", "win", "succeeded", "success", "improving", "improved",
+        "grounded", "lighter", "relieved", "relief", "enjoyed", "enjoy", "fun",
     }
 
     NEGATIVE_WORDS = {
@@ -20,7 +28,19 @@ class NLPEmotionJournalEngine:
         "depressed", "hopeless", "lonely", "angry", "furious", "frustrated",
         "fail", "failure", "failed", "hate", "scared", "fear", "dread", "stuck",
         "panicked", "burnt", "burnout", "guilty", "ashamed", "worthless", "helpless",
-        "ruined", "terrible", "horrible", "awful", "bad", "worst", "painful"
+        "ruined", "terrible", "horrible", "awful", "bad", "worst", "painful",
+        # Extended coverage: the original set missed very common distress vocabulary
+        # such as "disaster", "mess" and "struggling", so plainly negative entries
+        # were scoring a neutral 0.0.
+        "disaster", "mess", "messed", "messing", "struggling", "struggle", "worried",
+        "worry", "upset", "miserable", "drained", "defeated", "useless", "pointless",
+        "broken", "crushed", "regret", "embarrassed", "humiliated", "rejected",
+        "isolated", "numb", "restless", "irritated", "irritating", "annoyed",
+        "resentful", "discouraged", "insecure", "trapped", "pressure", "pressured",
+        "tense", "tension", "nervous", "uneasy", "dreading", "overloaded",
+        "unmotivated", "hurt", "hurting", "grief", "crying", "cried", "tears",
+        "sick", "unwell", "insomnia", "sleepless", "difficult", "hard", "tough",
+        "wrong", "problem", "problems", "trouble", "conflict", "argument",
     }
 
     DISTORTION_PATTERNS = [
@@ -139,7 +159,18 @@ class NLPEmotionJournalEngine:
 
         if detected_distortions:
             distortion_name = detected_distortions[0]
-            reflection_prompt = f"{distortion_advice[0]} How might you reframe the thought{concept_str} with more self-compassion?"
+            # Name every pattern that fired, not just the first, and lead with the emotion the
+            # entry actually carries so the reflection reads as a response to this entry.
+            if len(detected_distortions) > 1:
+                named = ", ".join(detected_distortions[:-1]) + f" and {detected_distortions[-1]}"
+                opener = f"Two patterns stand out in how you wrote this: {named}. "
+            else:
+                opener = f"One pattern stands out in how you wrote this: {distortion_name}. "
+            guidance = " ".join(distortion_advice[:2])
+            reflection_prompt = (
+                f"{opener}{guidance} "
+                f"How might you reframe the thought{concept_str} with more self-compassion?"
+            )
             recommended_action = "Write down one piece of concrete counter-evidence to the thought causing tension."
         elif "anxiety" in dominant_emotion or "tension" in dominant_emotion:
             reflection_prompt = f"When tension rises{concept_str}, your nervous system is asking for safety. What is one physical anchor in your current environment that feels steady?"

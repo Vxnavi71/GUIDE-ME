@@ -4,32 +4,145 @@
 
 :root {
   color-scheme: light dark;
+  /* Ground tones kept in variables so the shell and the Tailwind palette stay in step. */
+  --gm-bg: #f8f7f3;
+  --gm-fg: #17231d;
+}
+
+.dark {
+  --gm-bg: #0b120e;
+  --gm-fg: #e5ece5;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
   margin: 0;
-  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-  background-color: #fbfaf8;
-  color: #17231d;
+  font-family: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, BlinkMacSystemFont,
+    'Segoe UI', Roboto, sans-serif;
+  background-color: var(--gm-bg);
+  color: var(--gm-fg);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'cv11', 'ss01';
+  letter-spacing: -0.005em;
 }
 
-.dark body {
-  background-color: #0f1713;
-  color: #e5ece5;
+@layer base {
+  /* Headings carry the hierarchy; balance keeps two-line titles from orphaning a word. */
+  h1, h2, h3, h4 {
+    text-wrap: balance;
+    letter-spacing: -0.02em;
+  }
+
+  /* Digits that sit in columns or swap on a timer should not shift width. */
+  .tabular, [data-metric] {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer components {
+  /* ---- Surfaces -------------------------------------------------------- */
+  .gm-card {
+    @apply bg-white dark:bg-forest-900 border border-earth-200/80 dark:border-forest-800
+           rounded-2xl shadow-soft transition-all duration-300 ease-out-expo;
+  }
+
+  /* Only interactive cards lift — a hover effect on a static panel reads as a bug. */
+  .gm-card-interactive {
+    @apply gm-card hover:shadow-lift hover:-translate-y-0.5
+           hover:border-sage-300/70 dark:hover:border-forest-600 cursor-pointer;
+  }
+
+  .gm-panel {
+    @apply bg-white/70 dark:bg-forest-900/70 backdrop-blur-xl
+           border border-earth-200/70 dark:border-forest-800/70 rounded-2xl;
+  }
+
+  /* ---- Typography ------------------------------------------------------ */
+  .gm-eyebrow {
+    @apply text-[11px] font-bold uppercase tracking-[0.1em] text-earth-500 dark:text-sage-400;
+  }
+
+  .gm-title {
+    @apply text-xl sm:text-2xl font-bold tracking-tight text-forest-950 dark:text-sage-50;
+  }
+
+  .gm-subtitle {
+    @apply text-sm text-earth-600 dark:text-sage-400 leading-relaxed;
+  }
+
+  .gm-metric {
+    @apply text-2xl sm:text-3xl font-bold tracking-tight text-forest-950 dark:text-sage-50;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ---- Controls -------------------------------------------------------- */
+  .gm-btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5
+           text-sm font-semibold transition-all duration-200 ease-out-expo
+           disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.98];
+  }
+
+  .gm-btn-primary {
+    @apply gm-btn bg-sage-600 text-white shadow-soft
+           hover:bg-sage-700 hover:shadow-card;
+  }
+
+  .gm-btn-ghost {
+    @apply gm-btn bg-earth-100 dark:bg-forest-800 text-forest-900 dark:text-sage-200
+           hover:bg-earth-200 dark:hover:bg-forest-700;
+  }
+
+  .gm-input {
+    @apply w-full rounded-xl border border-earth-200 dark:border-forest-700
+           bg-white dark:bg-forest-900 px-4 py-2.5 text-sm text-forest-950 dark:text-sage-100
+           placeholder:text-earth-400 dark:placeholder:text-sage-500
+           focus:border-sage-500 focus:ring-4 focus:ring-sage-500/10 focus:outline-none
+           transition-all duration-200;
+  }
+
+  /* ---- Status pills ---------------------------------------------------- */
+  .gm-pill {
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1
+           text-[11px] font-semibold tracking-wide;
+  }
+
+  .gm-pill-good {
+    @apply gm-pill bg-sage-100 text-sage-700 dark:bg-sage-900/40 dark:text-sage-300;
+  }
+
+  .gm-pill-warn {
+    @apply gm-pill bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300;
+  }
+
+  .gm-pill-alert {
+    @apply gm-pill bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300;
+  }
+
+  .gm-pill-muted {
+    @apply gm-pill bg-earth-100 text-earth-600 dark:bg-forest-800 dark:text-sage-400;
+  }
+
+  /* Staggered entrance for grids; index drives the delay via inline style. */
+  .gm-enter {
+    @apply animate-fade-up;
+  }
 }
 
 /* Accessible focus ring */
 *:focus-visible {
   outline: 2px solid #5a825a;
   outline-offset: 2px;
+  border-radius: 4px;
 }
 
 /* Restrained calm custom scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
 }
 
 ::-webkit-scrollbar-track {
@@ -41,6 +154,26 @@ body {
   border-radius: 9999px;
 }
 
+::-webkit-scrollbar-thumb:hover {
+  background: #a7c1a7;
+}
+
 .dark ::-webkit-scrollbar-thumb {
   background: #2b3f35;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #4a7864;
+}
+
+/* Respect the OS reduced-motion setting: keep state changes, drop the movement. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

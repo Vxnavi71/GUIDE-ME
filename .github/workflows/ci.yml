@@ -30,7 +30,7 @@ jobs:
           DATABASE_FALLBACK_SQLITE: "True"
         run: |
           cd backend
-          python -m pytest tests/test_backend.py -v
+          python -m pytest tests/ -v
 
   frontend-build:
     name: Frontend Typecheck & Build

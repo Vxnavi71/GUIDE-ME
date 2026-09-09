@@ -7,6 +7,8 @@ import {
   Smartphone,
   Smile,
   ArrowUpRight,
+  ArrowRight,
+  Compass,
   ShieldCheck,
   TrendingDown,
   TrendingUp,
@@ -64,6 +66,7 @@ export const DashboardOverview: React.FC = () => {
   const [goals, setGoals] = useState<any[]>([]);
   const [habits, setHabits] = useState<any[]>([]);
   const [recommendations, setRecommendations] = useState<any[]>([]);
+  const [personality, setPersonality] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [togglingHabitId, setTogglingHabitId] = useState<string | null>(null);
@@ -82,11 +85,12 @@ export const DashboardOverview: React.FC = () => {
     else setRefreshing(true);
 
     try {
-      const [sumRes, goalsRes, habitsRes, recsRes] = await Promise.allSettled([
+      const [sumRes, goalsRes, habitsRes, recsRes, personalityRes] = await Promise.allSettled([
         ApiService.getDashboardSummary(),
         ApiService.listGoals(),
         ApiService.listHabits(),
         ApiService.getRecommendations(),
+        ApiService.getLatestPersonality(),
       ]);
 
       if (sumRes.status === 'fulfilled') {
@@ -100,6 +104,9 @@ export const DashboardOverview: React.FC = () => {
       }
       if (recsRes.status === 'fulfilled') {
         setRecommendations(recsRes.value);
+      }
+      if (personalityRes.status === 'fulfilled' && personalityRes.value?.openness !== undefined) {
+        setPersonality(personalityRes.value);
       }
     } catch (err) {
       console.error('Failed to load dashboard data:', err);
@@ -191,63 +198,92 @@ export const DashboardOverview: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Top Welcome & Baseline Status */}
-      <div className="bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 rounded-2xl p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <div className="flex flex-wrap items-center gap-2 mb-2">
-            <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
-              summary?.baseline_calibrated
-                ? 'bg-sage-100 dark:bg-forest-800 text-sage-700 dark:text-sage-300'
-                : 'bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300'
-            }`}>
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>{summary?.baseline_calibrated ? 'Personal Baseline Calibrated' : 'Baseline Uncalibrated (Log 3+ entries)'}</span>
-            </div>
-            <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-earth-100 dark:bg-forest-800 text-earth-600 dark:text-sage-400">
-              {summary?.wearable_provider_mode === 'connected' ? 'Hardware Synchronized' : 'Wearable Not Connected'}
-            </span>
-          </div>
-          <h1 className="text-2xl font-semibold text-forest-950 dark:text-sage-100">
-            Good day, {userName}
-          </h1>
-          <p className="text-sm text-earth-600 dark:text-sage-400 mt-1 max-w-2xl">
-            {stressDeviation !== null ? (
-              <>
-                Your personal autonomic stress deviation is{' '}
-                <span className={`font-semibold ${stressDeviation <= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
-                  {stressDeviation > 0 ? `+${stressDeviation}` : stressDeviation}σ
-                </span>{' '}
-                relative to your rolling norm.
-              </>
-            ) : (
-              'Welcome to your personal wellbeing dashboard. Start by logging your mood, writing a reflection, or syncing your wearable device.'
-            )}
-          </p>
-        </div>
+      {/* Top Welcome & Baseline Status — the page's one bold surface. */}
+      <div className="relative overflow-hidden rounded-3xl shadow-card animate-fade-up
+                      bg-gradient-to-br from-forest-700 via-forest-800 to-forest-900
+                      dark:from-forest-800 dark:via-forest-900 dark:to-forest-950">
+        {/* Ambient light blooms, purely decorative. */}
+        <div className="pointer-events-none absolute -top-24 -right-16 w-72 h-72 rounded-full bg-sage-400/20 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-28 -left-10 w-72 h-72 rounded-full bg-emerald-300/10 blur-3xl" />
 
-        <div className="flex items-center gap-2.5 flex-shrink-0">
-          <button
-            onClick={() => loadDashboardData(false)}
-            disabled={refreshing}
-            title="Refresh Real-time Telemetry"
-            className="p-2.5 rounded-xl border border-earth-300 dark:border-forest-700 hover:bg-earth-100 dark:hover:bg-forest-800 text-earth-700 dark:text-sage-300 transition-colors"
-          >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin text-sage-600' : ''}`} />
-          </button>
-          <Link
-            to="/dashboard/companion"
-            className="px-4 py-2.5 rounded-xl bg-sage-600 hover:bg-sage-700 text-white font-medium text-sm transition-colors shadow-sm flex items-center gap-1.5"
-          >
-            <Bot className="w-4 h-4" />
-            <span>Reflect with AI</span>
-          </Link>
-          <Link
-            to="/dashboard/facial-analysis"
-            className="px-4 py-2.5 rounded-xl border border-earth-300 dark:border-forest-700 hover:bg-earth-100 dark:hover:bg-forest-800 text-earth-800 dark:text-sage-200 text-sm font-medium transition-colors flex items-center gap-1.5"
-          >
-            <Camera className="w-4 h-4" />
-            <span>Facial Signals</span>
-          </Link>
+        <div className="relative p-6 sm:p-8 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              <div
+                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold tracking-wide backdrop-blur-sm ${
+                  summary?.baseline_calibrated
+                    ? 'bg-sage-400/20 text-sage-100 ring-1 ring-sage-300/30'
+                    : 'bg-amber-400/20 text-amber-100 ring-1 ring-amber-300/30'
+                }`}
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>
+                  {summary?.baseline_calibrated
+                    ? 'Personal Baseline Calibrated'
+                    : 'Baseline Uncalibrated (Log 3+ entries)'}
+                </span>
+              </div>
+              <span className="px-3 py-1 rounded-full text-[11px] font-bold tracking-wide bg-white/10 text-sage-200 ring-1 ring-white/10 backdrop-blur-sm">
+                {summary?.wearable_provider_mode === 'connected'
+                  ? 'Hardware Synchronized'
+                  : 'Wearable Not Connected'}
+              </span>
+            </div>
+
+            <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white">
+              Good day, {userName}
+            </h1>
+
+            <p className="text-sm text-sage-200/90 mt-2 max-w-2xl leading-relaxed">
+              {stressDeviation !== null ? (
+                <>
+                  Your personal autonomic stress deviation is{' '}
+                  <span
+                    className={`font-bold tabular-nums ${
+                      stressDeviation <= 0 ? 'text-emerald-300' : 'text-amber-300'
+                    }`}
+                  >
+                    {stressDeviation > 0 ? `+${stressDeviation}` : stressDeviation}σ
+                  </span>{' '}
+                  relative to your rolling norm.
+                </>
+              ) : (
+                'Welcome to your personal wellbeing dashboard. Start by logging your mood, writing a reflection, or syncing your wearable device.'
+              )}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2.5 flex-shrink-0">
+            <button
+              onClick={() => loadDashboardData(false)}
+              disabled={refreshing}
+              title="Refresh Real-time Telemetry"
+              className="p-3 rounded-xl bg-white/10 hover:bg-white/20 ring-1 ring-white/15 text-sage-100
+                         backdrop-blur-sm transition-all duration-200 ease-out-expo active:scale-95"
+            >
+              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+            </button>
+            <Link
+              to="/dashboard/companion"
+              className="px-4 py-3 rounded-xl bg-white text-forest-900 font-bold text-sm
+                         shadow-lift hover:shadow-card hover:bg-sage-50
+                         transition-all duration-200 ease-out-expo active:scale-[0.98]
+                         flex items-center gap-2"
+            >
+              <Bot className="w-4 h-4" />
+              <span>Reflect with AI</span>
+            </Link>
+            <Link
+              to="/dashboard/facial-analysis"
+              className="px-4 py-3 rounded-xl bg-white/10 hover:bg-white/20 ring-1 ring-white/15
+                         text-sage-100 text-sm font-semibold backdrop-blur-sm
+                         transition-all duration-200 ease-out-expo active:scale-[0.98]
+                         flex items-center gap-2"
+            >
+              <Camera className="w-4 h-4" />
+              <span>Facial Signals</span>
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -256,14 +292,14 @@ export const DashboardOverview: React.FC = () => {
         {/* Mood Pulse */}
         <div
           onClick={() => setShowMoodModal(true)}
-          className="p-5 rounded-2xl bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 shadow-sm flex items-center justify-between cursor-pointer hover:border-sage-400 dark:hover:border-forest-600 transition-all group"
+          className="p-5 rounded-2xl bg-white dark:bg-forest-900 border border-earth-200/80 dark:border-forest-800 shadow-soft hover:shadow-lift hover:-translate-y-0.5 hover:border-sage-300 dark:hover:border-forest-600 transition-all duration-300 ease-out-expo flex items-center justify-between cursor-pointer hover:border-sage-400 dark:hover:border-forest-600 transition-all group"
         >
           <div>
             <div className="flex items-center gap-1.5 text-earth-500 dark:text-sage-400 mb-1">
               <Smile className="w-4 h-4 text-amber-500 group-hover:scale-110 transition-transform" />
               <span className="text-xs font-medium uppercase tracking-wider">Mood Pulse</span>
             </div>
-            <div className="text-2xl font-bold text-forest-950 dark:text-sage-100">
+            <div className="text-2xl font-bold tracking-tight tabular-nums text-forest-950 dark:text-sage-50">
               {latestMood !== null ? (
                 <>
                   {latestMood} <span className="text-sm font-normal text-earth-500 dark:text-sage-400">/ 10</span>
@@ -289,13 +325,13 @@ export const DashboardOverview: React.FC = () => {
         </div>
 
         {/* Stress Index */}
-        <div className="p-5 rounded-2xl bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 shadow-sm flex items-center justify-between">
+        <div className="p-5 rounded-2xl bg-white dark:bg-forest-900 border border-earth-200/80 dark:border-forest-800 shadow-soft hover:shadow-lift hover:-translate-y-0.5 hover:border-sage-300 dark:hover:border-forest-600 transition-all duration-300 ease-out-expo flex items-center justify-between">
           <div>
             <div className="flex items-center gap-1.5 text-earth-500 dark:text-sage-400 mb-1">
               <Activity className="w-4 h-4 text-sage-600" />
               <span className="text-xs font-medium uppercase tracking-wider">Stress Index</span>
             </div>
-            <div className="text-2xl font-bold text-forest-950 dark:text-sage-100">
+            <div className="text-2xl font-bold tracking-tight tabular-nums text-forest-950 dark:text-sage-50">
               {stressScore !== null ? (
                 <>
                   {Math.round(stressScore)}{' '}
@@ -324,13 +360,13 @@ export const DashboardOverview: React.FC = () => {
         </div>
 
         {/* Sleep Recovery */}
-        <div className="p-5 rounded-2xl bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 shadow-sm flex items-center justify-between">
+        <div className="p-5 rounded-2xl bg-white dark:bg-forest-900 border border-earth-200/80 dark:border-forest-800 shadow-soft hover:shadow-lift hover:-translate-y-0.5 hover:border-sage-300 dark:hover:border-forest-600 transition-all duration-300 ease-out-expo flex items-center justify-between">
           <div>
             <div className="flex items-center gap-1.5 text-earth-500 dark:text-sage-400 mb-1">
               <Moon className="w-4 h-4 text-indigo-500" />
               <span className="text-xs font-medium uppercase tracking-wider">Sleep Recovery</span>
             </div>
-            <div className="text-2xl font-bold text-forest-950 dark:text-sage-100">
+            <div className="text-2xl font-bold tracking-tight tabular-nums text-forest-950 dark:text-sage-50">
               {sleepHours !== null ? (
                 <>
                   {sleepHours} <span className="text-sm font-normal text-earth-500 dark:text-sage-400">hrs</span>
@@ -358,7 +394,7 @@ export const DashboardOverview: React.FC = () => {
                 centerContent={<span className="text-[10px] font-bold text-forest-950 dark:text-sage-100">{sleepPercent}%</span>}
               />
             ) : (
-              <div className="w-12 h-12 rounded-full border-2 border-dashed border-earth-200 dark:border-forest-800 flex items-center justify-center text-xs text-earth-400">
+              <div className="w-12 h-12 rounded-full border-2 border-dashed border-earth-200/80 dark:border-forest-800 flex items-center justify-center text-xs text-earth-400">
                 —
               </div>
             )}
@@ -369,13 +405,13 @@ export const DashboardOverview: React.FC = () => {
         </div>
 
         {/* Digital Balance */}
-        <div className="p-5 rounded-2xl bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 shadow-sm flex items-center justify-between">
+        <div className="p-5 rounded-2xl bg-white dark:bg-forest-900 border border-earth-200/80 dark:border-forest-800 shadow-soft hover:shadow-lift hover:-translate-y-0.5 hover:border-sage-300 dark:hover:border-forest-600 transition-all duration-300 ease-out-expo flex items-center justify-between">
           <div>
             <div className="flex items-center gap-1.5 text-earth-500 dark:text-sage-400 mb-1">
               <Smartphone className="w-4 h-4 text-blue-500" />
               <span className="text-xs font-medium uppercase tracking-wider">Digital Balance</span>
             </div>
-            <div className="text-2xl font-bold text-forest-950 dark:text-sage-100">
+            <div className="text-2xl font-bold tracking-tight tabular-nums text-forest-950 dark:text-sage-50">
               {screenHours !== null ? (
                 <>
                   {screenHours} <span className="text-sm font-normal text-earth-500 dark:text-sage-400">hrs</span>
@@ -403,7 +439,7 @@ export const DashboardOverview: React.FC = () => {
                 centerContent={<span className="text-[10px] font-bold text-forest-950 dark:text-sage-100">{screenPercent}%</span>}
               />
             ) : (
-              <div className="w-12 h-12 rounded-full border-2 border-dashed border-earth-200 dark:border-forest-800 flex items-center justify-center text-xs text-earth-400">
+              <div className="w-12 h-12 rounded-full border-2 border-dashed border-earth-200/80 dark:border-forest-800 flex items-center justify-center text-xs text-earth-400">
                 —
               </div>
             )}
@@ -417,7 +453,7 @@ export const DashboardOverview: React.FC = () => {
       {/* Main Charts & Habits/Goals Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* 7-Day Trend Chart */}
-        <div className="lg:col-span-2 bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 rounded-2xl p-6 shadow-sm">
+        <div className="lg:col-span-2 bg-white dark:bg-forest-900 border border-earth-200/80 dark:border-forest-800 rounded-2xl p-6 shadow-soft">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-base font-semibold text-forest-950 dark:text-sage-100">
@@ -493,7 +529,7 @@ export const DashboardOverview: React.FC = () => {
                 </AreaChart>
               </ResponsiveContainer>
             ) : (
-              <div className="h-full flex flex-col items-center justify-center text-center p-6 border-2 border-dashed border-earth-200 dark:border-forest-800 rounded-xl">
+              <div className="h-full flex flex-col items-center justify-center text-center p-6 border-2 border-dashed border-earth-200/80 dark:border-forest-800 rounded-xl">
                 <Activity className="w-8 h-8 text-earth-400 dark:text-forest-600 mb-2" />
                 <h3 className="text-sm font-semibold text-forest-900 dark:text-sage-100">
                   No 7-Day Trajectory Recorded Yet
@@ -521,7 +557,7 @@ export const DashboardOverview: React.FC = () => {
         </div>
 
         {/* Daily Habits & Intentional Goals */}
-        <div className="bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 rounded-2xl p-6 shadow-sm flex flex-col justify-between">
+        <div className="bg-white dark:bg-forest-900 border border-earth-200/80 dark:border-forest-800 rounded-2xl p-6 shadow-soft flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
@@ -583,7 +619,7 @@ export const DashboardOverview: React.FC = () => {
                           disabled={isToggling}
                           className={`w-6 h-6 rounded-lg flex items-center justify-center transition-colors flex-shrink-0 ${
                             isDone
-                              ? 'bg-sage-600 text-white shadow-sm'
+                              ? 'bg-sage-600 text-white shadow-soft'
                               : 'border-2 border-earth-300 dark:border-forest-600 hover:border-sage-500'
                           }`}
                         >
@@ -623,8 +659,98 @@ export const DashboardOverview: React.FC = () => {
         </div>
       </div>
 
+      {/* Big Five Psychometric Profile Card */}
+      <div className="bg-white dark:bg-forest-900 border border-earth-200/80 dark:border-forest-800 rounded-2xl p-6 shadow-soft">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-sage-100 dark:bg-forest-800 text-sage-700 dark:text-sage-300">
+              <Compass className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-base font-semibold text-forest-950 dark:text-sage-100">
+                Big Five Personality Archetype
+              </h2>
+              <p className="text-xs text-earth-500 dark:text-sage-400">
+                IPIP 50-factor psychometric profile and baseline traits
+              </p>
+            </div>
+          </div>
+          <Link
+            to="/dashboard/personality"
+            className="text-xs font-semibold text-sage-700 dark:text-sage-300 hover:underline flex items-center gap-1 self-start sm:self-auto"
+          >
+            {personality ? 'Full Psychometric Breakdown' : 'Take Personality Test'} <ArrowUpRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
+
+        {personality ? (
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-medium text-earth-500 dark:text-sage-400">Dominant:</span>
+              {personality.dominant_traits?.length > 0 ? (
+                personality.dominant_traits.map((t: string, idx: number) => (
+                  <span
+                    key={idx}
+                    className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-sage-100 dark:bg-forest-800 text-sage-800 dark:text-sage-200"
+                  >
+                    {t}
+                  </span>
+                ))
+              ) : (
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-earth-100 dark:bg-forest-800 text-earth-800 dark:text-sage-200">
+                  Balanced Psychometric Profile
+                </span>
+              )}
+            </div>
+
+            {/* Trait Mini-Bars Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+              {[
+                { name: 'Openness', score: Math.round(personality.openness), color: '#3b82f6' },
+                { name: 'Conscientiousness', score: Math.round(personality.conscientiousness), color: '#10b981' },
+                { name: 'Extraversion', score: Math.round(personality.extraversion), color: '#f59e0b' },
+                { name: 'Agreeableness', score: Math.round(personality.agreeableness), color: '#8b5cf6' },
+                { name: 'Emotional Stability', score: Math.round(100 - personality.neuroticism), color: '#ef4444' },
+              ].map((t) => (
+                <div key={t.name} className="p-3 rounded-xl bg-earth-50 dark:bg-forest-800/50 border border-earth-200/60 dark:border-forest-700/60">
+                  <div className="flex items-center justify-between text-xs mb-1.5">
+                    <span className="font-medium text-earth-700 dark:text-sage-300 truncate">{t.name}</span>
+                    <span className="font-bold text-forest-950 dark:text-sage-50">{t.score}%</span>
+                  </div>
+                  <div className="w-full bg-earth-200 dark:bg-forest-700 rounded-full h-1.5 overflow-hidden">
+                    <div className="h-1.5 rounded-full transition-all duration-500" style={{ width: `${t.score}%`, backgroundColor: t.color }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <p className="text-xs text-earth-600 dark:text-sage-300 leading-relaxed border-t border-earth-100 dark:border-forest-800 pt-3">
+              {personality.analysis_summary}
+            </p>
+          </div>
+        ) : (
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl bg-earth-50/70 dark:bg-forest-800/40 border border-dashed border-earth-300 dark:border-forest-700">
+            <div>
+              <h3 className="text-xs font-semibold text-forest-950 dark:text-sage-100">
+                No Personality Test Scores Recorded
+              </h3>
+              <p className="text-xs text-earth-500 dark:text-sage-400 mt-0.5">
+                Complete the 50-item IPIP Big Five assessment to unlock trait percentiles, cognitive strengths, and matched career directions.
+              </p>
+            </div>
+            <Link
+              to="/dashboard/personality"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-sage-600 hover:bg-sage-700 text-white text-xs font-semibold transition-colors flex-shrink-0 shadow-soft"
+            >
+              <span>Take Assessment</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+        )}
+      </div>
+
       {/* Personalized Guidance & Interventions */}
-      <div className="bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 rounded-2xl p-6 shadow-sm">
+      <div className="bg-white dark:bg-forest-900 border border-earth-200/80 dark:border-forest-800 rounded-2xl p-6 shadow-soft">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
           <div>
             <h2 className="text-base font-semibold text-forest-950 dark:text-sage-100">
@@ -643,7 +769,7 @@ export const DashboardOverview: React.FC = () => {
           {recommendations.slice(0, 3).map((rec) => (
             <div
               key={rec.id}
-              className="p-4 rounded-xl border border-earth-200 dark:border-forest-800 bg-earth-50/70 dark:bg-forest-800/40 flex flex-col justify-between hover:border-sage-300 dark:hover:border-forest-600 transition-colors"
+              className="p-4 rounded-xl border border-earth-200/80 dark:border-forest-800 bg-earth-50/70 dark:bg-forest-800/40 flex flex-col justify-between hover:border-sage-300 dark:hover:border-forest-600 transition-colors"
             >
               <div>
                 <div className="flex items-center justify-between mb-2">
@@ -690,7 +816,7 @@ export const DashboardOverview: React.FC = () => {
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         <Link
           to="/dashboard/goals"
-          className="p-3.5 rounded-xl bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 hover:border-sage-400 dark:hover:border-forest-600 text-center transition-all shadow-sm hover:shadow group"
+          className="p-3.5 rounded-xl bg-white dark:bg-forest-900 border border-earth-200/80 dark:border-forest-800 hover:border-sage-400 dark:hover:border-forest-600 text-center transition-all shadow-soft hover:shadow group"
         >
           <Flame className="w-5 h-5 mx-auto text-amber-500 mb-1.5 group-hover:scale-110 transition-transform" />
           <div className="text-xs font-semibold text-forest-950 dark:text-sage-100">Habits & Goals</div>
@@ -699,7 +825,7 @@ export const DashboardOverview: React.FC = () => {
 
         <Link
           to="/dashboard/wearables"
-          className="p-3.5 rounded-xl bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 hover:border-sage-400 dark:hover:border-forest-600 text-center transition-all shadow-sm hover:shadow group"
+          className="p-3.5 rounded-xl bg-white dark:bg-forest-900 border border-earth-200/80 dark:border-forest-800 hover:border-sage-400 dark:hover:border-forest-600 text-center transition-all shadow-soft hover:shadow group"
         >
           <Watch className="w-5 h-5 mx-auto text-indigo-500 mb-1.5 group-hover:scale-110 transition-transform" />
           <div className="text-xs font-semibold text-forest-950 dark:text-sage-100">Wearables & Sleep</div>
@@ -708,7 +834,7 @@ export const DashboardOverview: React.FC = () => {
 
         <Link
           to="/dashboard/digital-wellbeing"
-          className="p-3.5 rounded-xl bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 hover:border-sage-400 dark:hover:border-forest-600 text-center transition-all shadow-sm hover:shadow group"
+          className="p-3.5 rounded-xl bg-white dark:bg-forest-900 border border-earth-200/80 dark:border-forest-800 hover:border-sage-400 dark:hover:border-forest-600 text-center transition-all shadow-soft hover:shadow group"
         >
           <Smartphone className="w-5 h-5 mx-auto text-blue-500 mb-1.5 group-hover:scale-110 transition-transform" />
           <div className="text-xs font-semibold text-forest-950 dark:text-sage-100">Digital Balance</div>
@@ -717,7 +843,7 @@ export const DashboardOverview: React.FC = () => {
 
         <Link
           to="/dashboard/journal"
-          className="p-3.5 rounded-xl bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 hover:border-sage-400 dark:hover:border-forest-600 text-center transition-all shadow-sm hover:shadow group"
+          className="p-3.5 rounded-xl bg-white dark:bg-forest-900 border border-earth-200/80 dark:border-forest-800 hover:border-sage-400 dark:hover:border-forest-600 text-center transition-all shadow-soft hover:shadow group"
         >
           <BookOpen className="w-5 h-5 mx-auto text-emerald-600 mb-1.5 group-hover:scale-110 transition-transform" />
           <div className="text-xs font-semibold text-forest-950 dark:text-sage-100">Mindful Journal</div>
@@ -726,7 +852,7 @@ export const DashboardOverview: React.FC = () => {
 
         <Link
           to="/dashboard/facial-analysis"
-          className="p-3.5 rounded-xl bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 hover:border-sage-400 dark:hover:border-forest-600 text-center transition-all shadow-sm hover:shadow group"
+          className="p-3.5 rounded-xl bg-white dark:bg-forest-900 border border-earth-200/80 dark:border-forest-800 hover:border-sage-400 dark:hover:border-forest-600 text-center transition-all shadow-soft hover:shadow group"
         >
           <Camera className="w-5 h-5 mx-auto text-purple-500 mb-1.5 group-hover:scale-110 transition-transform" />
           <div className="text-xs font-semibold text-forest-950 dark:text-sage-100">Facial Signals</div>
@@ -735,19 +861,28 @@ export const DashboardOverview: React.FC = () => {
 
         <Link
           to="/dashboard/companion"
-          className="p-3.5 rounded-xl bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 hover:border-sage-400 dark:hover:border-forest-600 text-center transition-all shadow-sm hover:shadow group"
+          className="p-3.5 rounded-xl bg-white dark:bg-forest-900 border border-earth-200/80 dark:border-forest-800 hover:border-sage-400 dark:hover:border-forest-600 text-center transition-all shadow-soft hover:shadow group"
         >
           <Bot className="w-5 h-5 mx-auto text-sage-600 mb-1.5 group-hover:scale-110 transition-transform" />
           <div className="text-xs font-semibold text-forest-950 dark:text-sage-100">AI Companion</div>
           <div className="text-[10px] text-earth-500 dark:text-sage-400 mt-0.5">Cognitive reflection</div>
+        </Link>
+
+        <Link
+          to="/dashboard/personality"
+          className="p-3.5 rounded-xl bg-white dark:bg-forest-900 border border-earth-200/80 dark:border-forest-800 hover:border-sage-400 dark:hover:border-forest-600 text-center transition-all shadow-soft hover:shadow group"
+        >
+          <Compass className="w-5 h-5 mx-auto text-teal-600 dark:text-teal-400 mb-1.5 group-hover:scale-110 transition-transform" />
+          <div className="text-xs font-semibold text-forest-950 dark:text-sage-100">Big Five Traits</div>
+          <div className="text-[10px] text-earth-500 dark:text-sage-400 mt-0.5">OCEAN psychometrics</div>
         </Link>
       </div>
 
       {/* Interactive Mood Pulse Check-In Modal */}
       {showMoodModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-5">
-            <div className="flex items-center justify-between border-b border-earth-200 dark:border-forest-800 pb-3">
+          <div className="bg-white dark:bg-forest-900 border border-earth-200/80 dark:border-forest-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-5">
+            <div className="flex items-center justify-between border-b border-earth-200/80 dark:border-forest-800 pb-3">
               <div className="flex items-center gap-2">
                 <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-600">
                   <Smile className="w-5 h-5" />
@@ -809,7 +944,7 @@ export const DashboardOverview: React.FC = () => {
                       onClick={() => setEnergyLevel(lvl)}
                       className={`py-2 px-3 text-xs font-medium rounded-xl border capitalize transition-all ${
                         energyLevel === lvl
-                          ? 'bg-sage-600 border-sage-600 text-white shadow-sm'
+                          ? 'bg-sage-600 border-sage-600 text-white shadow-soft'
                           : 'bg-earth-50 dark:bg-forest-800/60 border-earth-200 dark:border-forest-700 text-earth-700 dark:text-sage-300 hover:border-sage-400'
                       }`}
                     >
@@ -838,7 +973,7 @@ export const DashboardOverview: React.FC = () => {
                         className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
                           selected
                             ? 'bg-sage-100 dark:bg-forest-800 border-sage-500 text-sage-800 dark:text-sage-200 font-medium'
-                            : 'bg-white dark:bg-forest-900 border-earth-200 dark:border-forest-800 text-earth-600 dark:text-sage-400 hover:border-earth-400'
+                            : 'bg-white dark:bg-forest-900 border-earth-200/80 dark:border-forest-800 text-earth-600 dark:text-sage-400 hover:border-earth-400'
                         }`}
                       >
                         {tag}
@@ -863,7 +998,7 @@ export const DashboardOverview: React.FC = () => {
               </div>
 
               {/* Actions */}
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-earth-200 dark:border-forest-800">
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-earth-200/80 dark:border-forest-800">
                 <button
                   type="button"
                   onClick={() => setShowMoodModal(false)}
@@ -874,7 +1009,7 @@ export const DashboardOverview: React.FC = () => {
                 <button
                   type="submit"
                   disabled={submittingMood}
-                  className="px-4 py-2 text-xs font-semibold text-white bg-sage-600 hover:bg-sage-700 rounded-xl transition-colors shadow-sm disabled:opacity-50"
+                  className="px-4 py-2 text-xs font-semibold text-white bg-sage-600 hover:bg-sage-700 rounded-xl transition-colors shadow-soft disabled:opacity-50"
                 >
                   {submittingMood ? 'Recording...' : 'Save Mood Pulse'}
                 </button>

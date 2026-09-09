@@ -49,9 +49,9 @@ export const ServerConfigModal: React.FC<ServerConfigModalProps> = ({ isOpen, on
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
-      <div className="bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+      <div className="bg-white dark:bg-forest-900 border border-earth-200/80 dark:border-forest-800 rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         {/* Header */}
-        <div className="p-4 border-b border-earth-200 dark:border-forest-800 flex items-center justify-between bg-earth-50/60 dark:bg-forest-950">
+        <div className="p-4 border-b border-earth-200/80 dark:border-forest-800 flex items-center justify-between bg-earth-50/60 dark:bg-forest-950">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-sage-100 dark:bg-forest-800 flex items-center justify-center text-sage-700 dark:text-sage-300">
               <Server className="w-4 h-4" />
@@ -135,7 +135,7 @@ export const ServerConfigModal: React.FC<ServerConfigModalProps> = ({ isOpen, on
               <button
                 type="button"
                 onClick={handleSave}
-                className="px-3.5 py-2 rounded-xl bg-sage-600 hover:bg-sage-700 text-white font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
+                className="px-3.5 py-2 rounded-xl bg-sage-600 hover:bg-sage-700 text-white font-semibold flex items-center gap-1.5 transition-colors shadow-soft"
               >
                 <Save className="w-3.5 h-3.5" />
                 <span>Save & Apply</span>

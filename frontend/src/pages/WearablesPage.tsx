@@ -46,7 +46,16 @@ export const WearablesPage: React.FC = () => {
     provider: 'Google Health Connect',
     supported_metrics: ['steps', 'heart_rate', 'sleep', 'active_calories'],
   });
-  const [bleDevice, setBleDevice] = useState<{ name: string; id: string } | null>(null);
+  const [bleDevice, setBleDevice] = useState<{
+    name: string;
+    id: string;
+    heartRateBpm?: number;
+    batteryPercent?: number;
+    services?: string[];
+    handle?: any;
+  } | null>(null);
+  // After a filtered scan finds nothing, the next attempt browses all nearby devices.
+  const [bleBrowseAll, setBleBrowseAll] = useState(false);
   const [connectedProviders, setConnectedProviders] = useState<Record<string, boolean>>({
     google_health_connect: false,
     bluetooth_le: false,
@@ -133,23 +142,88 @@ export const WearablesPage: React.FC = () => {
     }
   };
 
-  const handleConnectBluetooth = async () => {
+  const handleConnectBluetooth = async (acceptAllDevices = false) => {
+    if (!NativeBridgeService.isWebBluetoothAvailable()) {
+      showToast(
+        'Web Bluetooth is not available in this browser. Use Chrome, Edge, or Chrome on Android.',
+        'error',
+      );
+      return;
+    }
+
     try {
-      showToast('Scanning for nearby Bluetooth Smartwatches & Heart Rate sensors...', 'info');
-      const device = await NativeBridgeService.requestBluetoothDevice();
-      setBleDevice(device);
+      showToast(
+        acceptAllDevices
+          ? 'Showing all nearby Bluetooth devices…'
+          : 'Scanning for compatible Bluetooth wearables and sensors…',
+        'info',
+      );
+
+      const device: any = await NativeBridgeService.requestBluetoothDevice(acceptAllDevices);
+      const handle = (device as any).__device;
+
+      // Open a genuine GATT session and read whatever the device actually exposes.
+      showToast(`Connecting to ${device.name}…`, 'info');
+      const session = await NativeBridgeService.connectBluetoothDevice(handle);
+
+      if (!session.connected) {
+        showToast(`Could not open a GATT connection to ${device.name}.`, 'error');
+        return;
+      }
+
+      setBleDevice({
+        name: session.deviceName,
+        id: device.id,
+        heartRateBpm: session.heartRateBpm,
+        batteryPercent: session.batteryPercent,
+        services: session.services,
+        handle,
+      });
+
       await ApiService.pairWearableDevice({
         provider: 'bluetooth_le',
-        device_name: device.name,
+        device_name: session.deviceName,
         device_id: device.id,
       });
       setConnectedProviders((prev) => ({ ...prev, bluetooth_le: true }));
-      showToast(`Connected to ${device.name} via Bluetooth LE!`, 'success');
+
+      // Report only what the device actually returned.
+      const readings: string[] = [];
+      if (session.heartRateBpm !== undefined) readings.push(`${session.heartRateBpm} bpm`);
+      if (session.batteryPercent !== undefined) readings.push(`battery ${session.batteryPercent}%`);
+      showToast(
+        readings.length
+          ? `Connected to ${session.deviceName} — ${readings.join(', ')}`
+          : `Connected to ${session.deviceName}. It exposes no readable heart-rate or battery characteristic.`,
+        'success',
+      );
     } catch (e: any) {
-      if (!e.message?.includes('cancelled') && !e.message?.includes('canceled')) {
-        showToast(e.message || 'Bluetooth pairing was not completed.', 'warning');
+      const msg = e?.message || '';
+      if (msg.includes('cancelled') || msg.includes('canceled') || e?.name === 'NotFoundError') {
+        // The user dismissed the chooser, or nothing matched the service filters.
+        if (!acceptAllDevices) {
+          setBleBrowseAll(true);
+          showToast(
+            'No compatible device found. Tap "Pair BLE Device" again to browse all nearby devices.',
+            'info',
+          );
+        }
+        return;
       }
+      showToast(msg || 'Bluetooth pairing was not completed.', 'warning');
     }
+  };
+
+  const handleDisconnectBluetooth = async () => {
+    try {
+      if (bleDevice?.handle) NativeBridgeService.disconnectBluetoothDevice(bleDevice.handle);
+      await ApiService.disconnectWearable('bluetooth_le');
+    } catch {
+      // Disconnecting locally is enough if the server call fails.
+    }
+    setBleDevice(null);
+    setConnectedProviders((prev) => ({ ...prev, bluetooth_le: false }));
+    showToast('Bluetooth device disconnected.', 'info');
   };
 
   const handleToggleProvider = async (providerId: string, providerName: string) => {
@@ -164,7 +238,12 @@ export const WearablesPage: React.FC = () => {
     }
 
     if (providerId === 'bluetooth_le') {
-      await handleConnectBluetooth();
+      if (connectedProviders.bluetooth_le) {
+        await handleDisconnectBluetooth();
+      } else {
+        await handleConnectBluetooth(bleBrowseAll);
+        setBleBrowseAll(false);
+      }
       return;
     }
 
@@ -252,8 +331,18 @@ export const WearablesPage: React.FC = () => {
     {
       id: 'bluetooth_le',
       name: 'Direct Bluetooth LE Smartwatch / HRM',
-      desc: 'Connect direct Bluetooth GATT heart-rate sensors and smartwatches exposing standard 0x180D service.',
-      status: connectedProviders.bluetooth_le ? `Connected (${bleDevice?.name || 'BLE Device'})` : 'Ready to Pair',
+      desc: 'Pairs any Bluetooth LE device exposing standard GATT fitness services (heart rate, battery, cycling/running cadence, fitness machine). Reads live values directly from the device.',
+      status: connectedProviders.bluetooth_le
+        ? [
+            bleDevice?.name || 'BLE device',
+            bleDevice?.heartRateBpm !== undefined ? `${bleDevice.heartRateBpm} bpm` : null,
+            bleDevice?.batteryPercent !== undefined ? `${bleDevice.batteryPercent}%` : null,
+          ]
+            .filter(Boolean)
+            .join(' · ')
+        : bleBrowseAll
+          ? 'Tap again to browse all devices'
+          : 'Ready to Pair',
       isPrimary: false,
       actionLabel: connectedProviders.bluetooth_le ? 'Disconnect' : 'Pair BLE Device',
       supportedMetrics: ['Live Heart Rate', 'RR-Intervals'],
@@ -287,6 +376,56 @@ export const WearablesPage: React.FC = () => {
     },
   ];
 
+  // Daily goals used only to scale the activity rings. A ring shows an em dash rather than 0%
+  // when the underlying metric is absent, so an unsynced device never looks like a bad day.
+  const STEP_GOAL = 10000;
+  const ACTIVE_MINUTE_GOAL = 30;
+  const CALORIE_GOAL = 2200;
+
+  const ringValue = (raw: any) => (hasMetrics && raw !== null && raw !== undefined ? Number(raw) : null);
+
+  const stepsVal = ringValue(metrics?.step_count);
+  const activeVal = ringValue(metrics?.active_minutes);
+  const caloriesVal = ringValue(metrics?.calories_burned);
+
+  const activityRings = [
+    {
+      label: 'Steps',
+      color: 'text-sage-600 dark:text-sage-400',
+      gradientTo: 'text-emerald-400',
+      pct: stepsVal !== null ? Math.min(100, (stepsVal / STEP_GOAL) * 100) : 0,
+      display: stepsVal !== null ? stepsVal.toLocaleString() : '—',
+      goalLabel: `of ${STEP_GOAL.toLocaleString()}`,
+      caption:
+        stepsVal !== null
+          ? `${Math.round((stepsVal / STEP_GOAL) * 100)}% of daily goal`
+          : 'No step data yet',
+    },
+    {
+      label: 'Active Minutes',
+      color: 'text-amber-500 dark:text-amber-400',
+      gradientTo: 'text-orange-400',
+      pct: activeVal !== null ? Math.min(100, (activeVal / ACTIVE_MINUTE_GOAL) * 100) : 0,
+      display: activeVal !== null ? `${activeVal}m` : '—',
+      goalLabel: `of ${ACTIVE_MINUTE_GOAL}m`,
+      caption:
+        activeVal !== null
+          ? activeVal >= ACTIVE_MINUTE_GOAL
+            ? 'Daily target reached'
+            : `${ACTIVE_MINUTE_GOAL - activeVal}m to target`
+          : 'No activity data yet',
+    },
+    {
+      label: 'Energy Burn',
+      color: 'text-rose-500 dark:text-rose-400',
+      gradientTo: 'text-clay-400',
+      pct: caloriesVal !== null ? Math.min(100, (caloriesVal / CALORIE_GOAL) * 100) : 0,
+      display: caloriesVal !== null ? `${Math.round(caloriesVal)}` : '—',
+      goalLabel: `of ${CALORIE_GOAL} kcal`,
+      caption: caloriesVal !== null ? 'Basal + active burn' : 'No energy data yet',
+    },
+  ];
+
   const sleepHours = hasSleep ? sleepSummary.sleep_hours : (hasMetrics && metrics.sleep_hours ? metrics.sleep_hours : null);
   const targetSleep = (sleepSummary && sleepSummary.target_sleep_hours) ? sleepSummary.target_sleep_hours : 8.0;
   const sleepPct = sleepHours ? Math.min(Math.round((sleepHours / targetSleep) * 100), 100) : 0;
@@ -313,11 +452,11 @@ export const WearablesPage: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold text-forest-950 dark:text-sage-100 flex items-center gap-2">
+          <h1 className="text-2xl font-bold tracking-tight text-forest-950 dark:text-sage-50 flex items-center gap-2">
             <Watch className="w-5 h-5 text-sage-600 dark:text-sage-400" />
             <span>Wearables & Sleep Architecture Hub</span>
           </h1>
-          <p className="text-xs text-earth-600 dark:text-sage-400 mt-0.5">
+          <p className="text-sm text-earth-600 dark:text-sage-400 mt-1 leading-relaxed">
             Real-time synchronization of autonomic recovery, restorative sleep stages, and movement vitality without synthetic fallbacks.
           </p>
         </div>
@@ -329,7 +468,7 @@ export const WearablesPage: React.FC = () => {
               onClick={() => setActiveTab('wearables')}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
                 activeTab === 'wearables'
-                  ? 'bg-white dark:bg-forest-900 text-forest-950 dark:text-sage-100 shadow-sm'
+                  ? 'bg-white dark:bg-forest-900 text-forest-950 dark:text-sage-100 shadow-soft'
                   : 'text-earth-600 dark:text-sage-400 hover:text-forest-900'
               }`}
             >
@@ -340,7 +479,7 @@ export const WearablesPage: React.FC = () => {
               onClick={() => setActiveTab('sleep')}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
                 activeTab === 'sleep'
-                  ? 'bg-white dark:bg-forest-900 text-forest-950 dark:text-sage-100 shadow-sm'
+                  ? 'bg-white dark:bg-forest-900 text-forest-950 dark:text-sage-100 shadow-soft'
                   : 'text-earth-600 dark:text-sage-400 hover:text-forest-900'
               }`}
             >
@@ -360,7 +499,7 @@ export const WearablesPage: React.FC = () => {
           <button
             onClick={handleSync}
             disabled={syncing}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-sage-600 hover:bg-sage-700 text-white text-xs font-semibold transition-colors shadow-sm disabled:opacity-50"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-sage-600 hover:bg-sage-700 text-white text-xs font-semibold transition-colors shadow-soft disabled:opacity-50"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} />
             <span>{syncing ? 'Syncing Sensors...' : 'Sync Sensor Hub'}</span>
@@ -371,8 +510,8 @@ export const WearablesPage: React.FC = () => {
       {/* Manual Biometrics Log Modal */}
       {showLogModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 rounded-2xl max-w-lg w-full p-6 shadow-xl space-y-4">
-            <div className="flex items-center justify-between border-b border-earth-200 dark:border-forest-800 pb-3">
+          <div className="bg-white dark:bg-forest-900 border border-earth-200/80 dark:border-forest-800 rounded-2xl max-w-lg w-full p-6 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b border-earth-200/80 dark:border-forest-800 pb-3">
               <h2 className="text-base font-semibold text-forest-950 dark:text-sage-100 flex items-center gap-2">
                 <Watch className="w-5 h-5 text-sage-600 dark:text-sage-400" />
                 <span>Log Biometric & Sleep Observation</span>
@@ -520,7 +659,7 @@ export const WearablesPage: React.FC = () => {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="px-4 py-1.5 rounded-lg bg-sage-600 hover:bg-sage-700 text-white text-xs font-semibold shadow-sm transition-colors"
+                  className="px-4 py-1.5 rounded-lg bg-sage-600 hover:bg-sage-700 text-white text-xs font-semibold shadow-soft transition-colors"
                 >
                   Save Record
                 </button>
@@ -533,9 +672,50 @@ export const WearablesPage: React.FC = () => {
       {/* Tab 1: Wearables Hub */}
       {activeTab === 'wearables' && (
         <div className="space-y-6">
+          {/* Daily activity rings — the at-a-glance summary above the detailed readouts */}
+          <div className="bg-white dark:bg-forest-900 border border-earth-200/80 dark:border-forest-800 rounded-2xl p-6 shadow-soft">
+            <div className="flex items-baseline justify-between mb-5">
+              <h2 className="text-xs font-bold text-earth-500 dark:text-sage-400 uppercase tracking-wider">
+                Today at a Glance
+              </h2>
+              <span className="text-[11px] text-earth-500 dark:text-sage-400">
+                {hasMetrics ? 'Against your daily goals' : 'Sync a device to populate'}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 justify-items-center">
+              {activityRings.map((ring) => (
+                <div key={ring.label} className="flex flex-col items-center text-center">
+                  <CircularProgressRing
+                    progress={ring.pct}
+                    size={136}
+                    strokeWidth={11}
+                    progressColor={ring.color}
+                    gradientTo={ring.gradientTo}
+                    glow
+                    centerContent={
+                      <div className="flex flex-col items-center">
+                        <span className="text-xl font-bold text-forest-950 dark:text-sage-100 tabular-nums">
+                          {ring.display}
+                        </span>
+                        <span className="text-[10px] font-medium text-earth-500 dark:text-sage-400">
+                          {ring.goalLabel}
+                        </span>
+                      </div>
+                    }
+                  />
+                  <div className="mt-3">
+                    <div className="text-sm font-semibold text-forest-900 dark:text-sage-100">{ring.label}</div>
+                    <div className="text-[11px] text-earth-500 dark:text-sage-400">{ring.caption}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
           {/* 6 Biometric Stat Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div className="p-5 rounded-2xl bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 shadow-sm">
+            <div className="p-5 rounded-2xl bg-white dark:bg-forest-900 border border-earth-200/80 dark:border-forest-800 shadow-soft">
               <div className="flex items-center justify-between text-earth-500 dark:text-sage-400 mb-2">
                 <span className="text-xs font-medium uppercase tracking-wider">Heart Rate Variability</span>
                 <Heart className="w-4 h-4 text-rose-500" />
@@ -548,7 +728,7 @@ export const WearablesPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="p-5 rounded-2xl bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 shadow-sm">
+            <div className="p-5 rounded-2xl bg-white dark:bg-forest-900 border border-earth-200/80 dark:border-forest-800 shadow-soft">
               <div className="flex items-center justify-between text-earth-500 dark:text-sage-400 mb-2">
                 <span className="text-xs font-medium uppercase tracking-wider">Resting Heart Rate</span>
                 <Activity className="w-4 h-4 text-amber-500" />
@@ -563,7 +743,7 @@ export const WearablesPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="p-5 rounded-2xl bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 shadow-sm">
+            <div className="p-5 rounded-2xl bg-white dark:bg-forest-900 border border-earth-200/80 dark:border-forest-800 shadow-soft">
               <div className="flex items-center justify-between text-earth-500 dark:text-sage-400 mb-2">
                 <span className="text-xs font-medium uppercase tracking-wider">Daily Steps & Distance</span>
                 <Footprints className="w-4 h-4 text-emerald-500" />
@@ -580,7 +760,7 @@ export const WearablesPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="p-5 rounded-2xl bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 shadow-sm">
+            <div className="p-5 rounded-2xl bg-white dark:bg-forest-900 border border-earth-200/80 dark:border-forest-800 shadow-soft">
               <div className="flex items-center justify-between text-earth-500 dark:text-sage-400 mb-2">
                 <span className="text-xs font-medium uppercase tracking-wider">Active Exercise Zone</span>
                 <Flame className="w-4 h-4 text-amber-500" />
@@ -597,7 +777,7 @@ export const WearablesPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="p-5 rounded-2xl bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 shadow-sm">
+            <div className="p-5 rounded-2xl bg-white dark:bg-forest-900 border border-earth-200/80 dark:border-forest-800 shadow-soft">
               <div className="flex items-center justify-between text-earth-500 dark:text-sage-400 mb-2">
                 <span className="text-xs font-medium uppercase tracking-wider">Total Energy Output</span>
                 <Zap className="w-4 h-4 text-amber-500" />
@@ -612,7 +792,7 @@ export const WearablesPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="p-5 rounded-2xl bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 shadow-sm">
+            <div className="p-5 rounded-2xl bg-white dark:bg-forest-900 border border-earth-200/80 dark:border-forest-800 shadow-soft">
               <div className="flex items-center justify-between text-earth-500 dark:text-sage-400 mb-2">
                 <span className="text-xs font-medium uppercase tracking-wider">Hydration Log</span>
                 <Compass className="w-4 h-4 text-sky-500" />
@@ -629,7 +809,7 @@ export const WearablesPage: React.FC = () => {
           </div>
 
           {/* Provider Architecture Section */}
-          <div className="bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 rounded-2xl p-6 shadow-sm">
+          <div className="bg-white dark:bg-forest-900 border border-earth-200/80 dark:border-forest-800 rounded-2xl p-6 shadow-soft">
             <h2 className="text-sm font-semibold text-forest-950 dark:text-sage-100 mb-1">
               Connected Wearable Providers & Sensor Integrations
             </h2>
@@ -643,8 +823,8 @@ export const WearablesPage: React.FC = () => {
                   key={p.id}
                   className={`p-4 rounded-xl border flex flex-col justify-between gap-3 ${
                     p.isPrimary
-                      ? 'border-sage-300 dark:border-forest-700 bg-sage-50/40 dark:bg-forest-800/60 shadow-xs'
-                      : 'border-earth-200 dark:border-forest-800 bg-earth-50/50 dark:bg-forest-800/40'
+                      ? 'border-sage-300 dark:border-forest-700 bg-sage-50/40 dark:bg-forest-800/60 shadow-soft'
+                      : 'border-earth-200/80 dark:border-forest-800 bg-earth-50/50 dark:bg-forest-800/40'
                   }`}
                 >
                   <div>
@@ -709,16 +889,18 @@ export const WearablesPage: React.FC = () => {
           {/* Top Row: Sleep Ring & Stages Breakdown */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Circular Sleep Ring Card */}
-            <div className="bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 rounded-2xl p-6 shadow-sm flex flex-col items-center justify-center text-center">
+            <div className="bg-white dark:bg-forest-900 border border-earth-200/80 dark:border-forest-800 rounded-2xl p-6 shadow-soft flex flex-col items-center justify-center text-center">
               <h2 className="text-xs font-bold text-earth-500 dark:text-sage-400 uppercase tracking-wider mb-4">
                 Last Night Sleep Duration
               </h2>
 
               <CircularProgressRing
                 progress={sleepPct}
-                size={160}
-                strokeWidth={12}
+                size={168}
+                strokeWidth={13}
                 progressColor="text-indigo-500"
+                gradientTo="text-sky-400"
+                glow
                 centerContent={
                   <div className="flex flex-col items-center">
                     <span className="text-2xl font-bold text-forest-950 dark:text-sage-100">
@@ -748,7 +930,7 @@ export const WearablesPage: React.FC = () => {
             </div>
 
             {/* Sleep Stages Architecture */}
-            <div className="bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 rounded-2xl p-6 shadow-sm flex flex-col justify-between">
+            <div className="bg-white dark:bg-forest-900 border border-earth-200/80 dark:border-forest-800 rounded-2xl p-6 shadow-soft flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-xs font-bold text-earth-500 dark:text-sage-400 uppercase tracking-wider">
@@ -827,7 +1009,7 @@ export const WearablesPage: React.FC = () => {
             </div>
 
             {/* Sleep Consistency & Stress Relationship */}
-            <div className="bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 rounded-2xl p-6 shadow-sm flex flex-col justify-between">
+            <div className="bg-white dark:bg-forest-900 border border-earth-200/80 dark:border-forest-800 rounded-2xl p-6 shadow-soft flex flex-col justify-between">
               <div>
                 <span className="text-[10px] uppercase font-bold text-earth-500 dark:text-sage-400 tracking-wider">
                   Consistency & Stress Buffer
@@ -855,7 +1037,7 @@ export const WearablesPage: React.FC = () => {
           </div>
 
           {/* 7-Day Sleep Duration Trend */}
-          <div className="bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 rounded-2xl p-6 shadow-sm">
+          <div className="bg-white dark:bg-forest-900 border border-earth-200/80 dark:border-forest-800 rounded-2xl p-6 shadow-soft">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xs font-bold text-earth-500 dark:text-sage-400 uppercase tracking-wider">
                 7-Day Sleep Duration Trend

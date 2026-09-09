@@ -43,7 +43,7 @@ export const RegisterPage: React.FC = () => {
         <ThemeToggle />
       </div>
 
-      <div className="w-full max-w-md bg-white dark:bg-forest-900 rounded-2xl shadow-sm border border-earth-200 dark:border-forest-800 p-8">
+      <div className="w-full max-w-md bg-white dark:bg-forest-900 rounded-2xl shadow-soft border border-earth-200/80 dark:border-forest-800 p-8">
         <div className="text-center mb-6">
           <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-sage-100 dark:bg-forest-800 text-sage-600 dark:text-sage-400 mb-3">
             <Leaf className="w-6 h-6" />
@@ -120,7 +120,7 @@ export const RegisterPage: React.FC = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg bg-sage-600 hover:bg-sage-700 text-white font-medium text-sm transition-colors shadow-sm disabled:opacity-50"
+            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg bg-sage-600 hover:bg-sage-700 text-white font-medium text-sm transition-colors shadow-soft disabled:opacity-50"
           >
             {loading ? 'Creating Account...' : 'Complete Registration'}
             <ArrowRight className="w-4 h-4" />

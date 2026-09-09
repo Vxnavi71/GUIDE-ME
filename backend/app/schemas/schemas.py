@@ -1,6 +1,27 @@
 from datetime import datetime
 from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, EmailStr, Field, ConfigDict
+from pydantic import BaseModel, EmailStr, Field, ConfigDict, field_validator
+
+
+class _EmptyCollectionDefaults(BaseModel):
+    """
+    Coerces NULL JSON columns to empty collections.
+
+    A field such as `sleep_stages: Dict[str, float] = {}` only uses its default when the key is
+    absent; a column that is explicitly None still fails validation and takes the whole endpoint
+    down with a 500. Models mapping nullable JSON columns inherit this instead.
+    """
+
+    @field_validator("*", mode="before")
+    @classmethod
+    def _none_to_empty_collection(cls, v, info):
+        if v is not None:
+            return v
+        field = cls.model_fields.get(info.field_name)
+        default = getattr(field, "default", None) if field else None
+        if isinstance(default, (dict, list)):
+            return type(default)()
+        return v
 
 
 # =====================================================================
@@ -420,7 +441,7 @@ class WellnessMetricCreate(BaseModel):
     sleep_stages: Dict[str, float] = {}
 
 
-class SleepSummaryResponse(BaseModel):
+class SleepSummaryResponse(_EmptyCollectionDefaults):
     metric_date: Optional[str] = None
     sleep_hours: Optional[float] = None
     target_sleep_hours: float = 8.0
@@ -433,7 +454,7 @@ class SleepSummaryResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class WellnessMetricResponse(BaseModel):
+class WellnessMetricResponse(_EmptyCollectionDefaults):
     id: str
     metric_date: str
     sleep_hours: Optional[float] = None
@@ -487,7 +508,7 @@ class DigitalWellbeingDayTrend(BaseModel):
     is_target_met: bool
 
 
-class DigitalWellbeingResponse(BaseModel):
+class DigitalWellbeingResponse(_EmptyCollectionDefaults):
     id: Optional[str] = None
     metric_date: Optional[str] = None
     total_screen_time_minutes: Optional[int] = None

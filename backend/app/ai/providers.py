@@ -2,6 +2,7 @@ import abc
 import json
 import logging
 import os
+import re
 from typing import Any, Dict, List, Optional, Tuple
 
 from app.core.config import settings
@@ -37,28 +38,85 @@ class MockLLMProvider(BaseLLMProvider):
         self.intents = {
             "greeting": ["hello", "hi", "hey", "good morning", "good evening", "good afternoon", "greetings"],
             "farewell": ["bye", "goodbye", "see you", "night", "good night"],
-            "mood_check": ["mood", "feeling", "feel", "sad", "happy", "depressed"],
-            "stress_expression": ["stress", "pressure", "deadline", "swamped", "hectic", "too much"],
+            "mood_check": [
+                "mood", "feeling", "feelings", "feel", "feels", "felt", "sad", "happy",
+                "depressed", "down", "low", "numb", "empty", "miserable", "upset",
+                "hopeless", "worthless", "useless", "lonely", "alone", "falling apart",
+            ],
+            "stress_expression": [
+                "stress", "stressed", "stressful", "pressure", "pressured", "deadline",
+                "deadlines", "swamped", "hectic", "too much", "overloaded", "no time",
+                "juggling", "burnt out", "spread thin",
+            ],
             "goal_discussion": ["goal", "target", "achieve", "milestone", "trying to", "working on"],
             "habit_tracking": ["habit", "routine", "discipline", "procrastinating", "lazy", "stuck"],
-            "career_question": ["career", "job", "boss", "interview", "resume", "promotion", "workplace"],
+            "career_question": ["career", "job", "boss", "manager", "interview", "resume", "promotion", "workplace", "colleague", "colleagues", "coworker", "coworkers", "criticised", "criticized", "feedback", "fired", "layoff"],
             "journal_reflection": ["journal", "writing", "reflection", "wrote"],
             "sleep_concern": ["sleep", "tired", "exhausted", "insomnia", "drained", "burnout"],
-            "relationship": ["friend", "partner", "family", "relationship", "argue", "argument"],
-            "gratitude": ["thank", "grateful", "appreciate", "blessed", "glad"],
-            "frustration": ["angry", "mad", "furious", "frustrated", "annoyed", "unfair", "hate"],
-            "anxiety": ["anxious", "anxiety", "panic", "overwhelmed", "freaking out", "racing heart"],
+            "relationship": ["friend", "friends", "partner", "family", "relationship", "argue", "argued", "argument", "fight", "fought", "breakup", "broke up", "divorce"],
+            "gratitude": ["thank", "thanks", "thankful", "grateful", "gratitude", "appreciate", "appreciated", "blessed", "glad"],
+            "frustration": ["angry", "mad", "furious", "frustrated", "frustrating", "annoyed", "annoying", "unfair", "hate", "fed up", "sick of", "irritated", "resentful"],
+            "anxiety": ["anxious", "anxiety", "panic", "panicking", "overwhelmed", "overwhelming", "freaking out", "racing heart", "worried", "worry", "worrying", "scared", "afraid", "nervous", "dread", "dreading"],
             "study_academics": ["exam", "exams", "test", "finals", "midterm", "studying", "study", "syllabus", "homework", "assignment", "revision"],
             "progress_update": ["studied", "hours", "hour", "completed", "finished", "worked on", "spent time", "made progress"],
             "general_question": ["what", "how", "why", "when", "can you", "help"],
-            "small_talk": ["weather", "how are you", "what's up", "doing well"]
+            "small_talk": ["weather", "how are you", "what's up", "how's it going"]
         }
 
+    # Distress-bearing intents are resolved before conversational filler, so "everything is
+    # falling apart" can never be answered as small talk.
+    INTENT_PRIORITY = [
+        "anxiety",
+        "frustration",
+        "stress_expression",
+        "sleep_concern",
+        "relationship",
+        "career_question",
+        "study_academics",
+        "mood_check",
+        "habit_tracking",
+        "goal_discussion",
+        "journal_reflection",
+        "progress_update",
+        "gratitude",
+        "small_talk",
+        "greeting",
+        "farewell",
+        "general_question",
+    ]
+
     def _classify_intent(self, msg_lower: str) -> str:
+        """
+        Scores every intent by whole-word keyword matches and returns the strongest.
+
+        Substring matching was previously used here, which meant the greeting keyword "hi"
+        matched inside "everything", "nothing" and "this" — so messages describing distress were
+        answered with a greeting. Matching on word boundaries is what prevents that.
+        """
+        scores: Dict[str, int] = {}
         for intent, keywords in self.intents.items():
-            if any(k in msg_lower for k in keywords):
+            hits = 0
+            for k in keywords:
+                # Multi-word keywords ("how are you") are matched as phrases; single words are
+                # matched on word boundaries so they cannot fire inside a longer word.
+                pattern = r"\b" + re.escape(k) + r"\b"
+                if re.search(pattern, msg_lower):
+                    hits += 1
+            if hits:
+                scores[intent] = hits
+
+        if not scores:
+            return "general_question"
+
+        best = max(scores.values())
+        tied = [i for i, n in scores.items() if n == best]
+        if len(tied) == 1:
+            return tied[0]
+
+        for intent in self.INTENT_PRIORITY:
+            if intent in tied:
                 return intent
-        return "general_question"
+        return tied[0]
 
     async def generate_response(
         self,
@@ -88,7 +146,7 @@ class MockLLMProvider(BaseLLMProvider):
             try:
                 traits = system_prompt.split("Dominant Traits:")[1].split("\n")[0].strip()
                 if traits and "Balanced" not in traits:
-                    traits_ref = f" With your natural {traits.split(',')[0].lower()} trait,"
+                    traits_ref = f" Your natural {traits.split(',')[0].lower()} side is a real asset here."
             except Exception:
                 pass
 
@@ -200,20 +258,42 @@ class MockLLMProvider(BaseLLMProvider):
             elif role in ["assistant", "model"] and not last_asst_msg:
                 last_asst_msg = past_content
 
-        # Conversation phase tracking
-        phase_prefix = ""
-        if turn_count == 0:
-            phase_prefix = f"Welcome, {user_name}. "
-        elif turn_count < 5:
-            phase_prefix = "Let's explore this further. "
-        else:
-            phase_prefix = "Taking action can be empowering. "
-            
         intent = self._classify_intent(msg_lower)
-        
+
+        # Conversation phase prefix.
+        #
+        # This used to be selected purely by turn count, so from the fifth message onward every
+        # single reply opened with "Taking action can be empowering." — including replies to
+        # someone describing being criticised or falling apart. The prefix now depends on what
+        # the message actually carries, and is dropped entirely whenever the message carries
+        # distress, where any stock opener reads as dismissive.
+        distress_intents = {
+            "anxiety",
+            "frustration",
+            "stress_expression",
+            "sleep_concern",
+            "relationship",
+            "mood_check",
+        }
+        negative_markers = (
+            "hard", "awful", "terrible", "worst", "hate", "cant", "can't", "failed", "failing",
+            "criticis", "criticiz", "humiliat", "embarrass", "reject", "alone", "hopeless",
+            "useless", "worthless", "breaking", "falling apart", "give up", "exhausted",
+        )
+        carries_distress = intent in distress_intents or any(m in msg_lower for m in negative_markers)
+
+        if carries_distress:
+            phase_prefix = ""
+        elif turn_count == 0 and intent == "small_talk":
+            phase_prefix = f"Welcome, {user_name}. "
+        elif intent == "progress_update":
+            phase_prefix = "Taking action can be empowering. "
+        else:
+            phase_prefix = ""
+
         # Determine if we discussed this recently
         discussed_recently = any(intent in msg.get("content", "").lower() for msg in recent_history if msg.get("role") == "assistant")
-        if discussed_recently and intent not in ["greeting", "farewell", "small_talk"]:
+        if discussed_recently and not carries_distress and intent not in ["greeting", "farewell", "small_talk"]:
             phase_prefix = "Earlier you mentioned something similar, let's dive deeper. "
 
         # Basic Crisis Check

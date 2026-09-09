@@ -21,29 +21,53 @@ async def get_ocean_questions(
     repo = AssessmentRepository(db)
     assessment = await repo.get_default_assessment()
     if not assessment or not assessment.questions:
-        # Fallback to in-memory question bank representation
-        questions = []
-        for i, q in enumerate(OceanBigFiveEngine.QUESTIONS_DATA):
-            questions.append(
-                AssessmentQuestionSchema(
-                    id=f"q-{i+1}",
-                    question_text=q["text"],
-                    domain_trait=q["trait"],
-                    reverse_scored=q["reverse"],
-                    order_index=i + 1,
-                )
+        from app.models.entities import Assessment, AssessmentQuestion
+        if not assessment:
+            assessment = Assessment(
+                title="IPIP Big Five Factor Personality Inventory",
+                assessment_type="ocean_big_five",
+                version="1.0.0",
+                description="Validated 50-item psychometric inventory assessing Openness, Conscientiousness, Extraversion, Agreeableness, and Neuroticism.",
+                is_active=True,
             )
-        return questions
+            db.add(assessment)
+            await db.flush()
 
+        if not assessment.questions:
+            for idx, q_data in enumerate(OceanBigFiveEngine.QUESTIONS_DATA):
+                question = AssessmentQuestion(
+                    assessment_id=assessment.id,
+                    question_text=q_data["text"],
+                    domain_trait=q_data["trait"],
+                    reverse_scored=q_data["reverse"],
+                    order_index=idx + 1,
+                )
+                db.add(question)
+            await db.flush()
+            assessment = await repo.get_default_assessment()
+
+    if assessment and assessment.questions:
+        return [
+            AssessmentQuestionSchema(
+                id=q.id,
+                question_text=q.question_text,
+                domain_trait=q.domain_trait,
+                reverse_scored=q.reverse_scored,
+                order_index=q.order_index,
+            )
+            for q in sorted(assessment.questions, key=lambda x: x.order_index)
+        ]
+
+    # Fallback to in-memory question bank representation
     return [
         AssessmentQuestionSchema(
-            id=q.id,
-            question_text=q.question_text,
-            domain_trait=q.domain_trait,
-            reverse_scored=q.reverse_scored,
-            order_index=q.order_index,
+            id=f"q-{i+1}",
+            question_text=q["text"],
+            domain_trait=q["trait"],
+            reverse_scored=q["reverse"],
+            order_index=i + 1,
         )
-        for q in assessment.questions
+        for i, q in enumerate(OceanBigFiveEngine.QUESTIONS_DATA)
     ]
 
 

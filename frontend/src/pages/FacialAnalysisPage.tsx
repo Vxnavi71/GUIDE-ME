@@ -31,6 +31,9 @@ export const FacialAnalysisPage: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  // Guards the periodic sampler against overlapping in-flight requests.
+  const inFlightRef = useRef(false);
+  const consecutiveErrorsRef = useRef(0);
 
   // Stop camera on unmount
   useEffect(() => {
@@ -154,6 +157,10 @@ export const FacialAnalysisPage: React.FC = () => {
   const captureAndAnalyzeFrame = async () => {
     if (!videoRef.current || !canvasRef.current || !cameraActive) return;
 
+    // The sampler fires on a fixed interval; without this guard a slow round-trip lets requests
+    // stack up and results arrive out of order, making the readout jump around.
+    if (inFlightRef.current) return;
+
     const video = videoRef.current;
     if (video.readyState < 2) return;
 
@@ -166,18 +173,31 @@ export const FacialAnalysisPage: React.FC = () => {
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
     const base64Data = canvas.toDataURL('image/jpeg', 0.8);
+    inFlightRef.current = true;
     setAnalyzing(true);
     try {
       const res = await ApiService.processFacialFrame(base64Data);
       setAnalysisResult(res);
+      consecutiveErrorsRef.current = 0;
     } catch (e: any) {
       if (e.message?.includes('403') || e.message?.includes('consent')) {
         stopCamera();
         showToast('Camera consent required to process facial frames.', 'warning');
       } else {
         console.warn('Facial analysis inference notice:', e);
+        // Stop the sampler after repeated failures instead of hammering a failing endpoint.
+        consecutiveErrorsRef.current += 1;
+        if (consecutiveErrorsRef.current >= 5) {
+          setAutoSample(false);
+          consecutiveErrorsRef.current = 0;
+          showToast(
+            'Continuous analysis paused after repeated errors. Re-enable it once the connection recovers.',
+            'warning',
+          );
+        }
       }
     } finally {
+      inFlightRef.current = false;
       setAnalyzing(false);
     }
   };
@@ -188,14 +208,14 @@ export const FacialAnalysisPage: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header Banner */}
-      <div className="bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 rounded-2xl p-6 shadow-sm">
+      <div className="bg-white dark:bg-forest-900 border border-earth-200/80 dark:border-forest-800 rounded-2xl p-6 shadow-soft">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-sage-100 dark:bg-forest-800 text-sage-700 dark:text-sage-300 mb-2">
               <ShieldCheck className="w-3.5 h-3.5" />
               <span>Privacy-First In-Memory Processing</span>
             </div>
-            <h1 className="text-xl font-semibold text-forest-950 dark:text-sage-100">
+            <h1 className="text-2xl font-bold tracking-tight text-forest-950 dark:text-sage-50">
               Camera-Based Facial Signal Analysis
             </h1>
             <p className="text-xs text-earth-600 dark:text-sage-400 mt-1 max-w-2xl">
@@ -207,7 +227,7 @@ export const FacialAnalysisPage: React.FC = () => {
             {!cameraActive ? (
               <button
                 onClick={startCamera}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-sage-600 hover:bg-sage-700 text-white text-sm font-medium transition-colors shadow-sm"
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-sage-600 hover:bg-sage-700 text-white text-sm font-medium transition-colors shadow-soft"
               >
                 <Camera className="w-4 h-4" />
                 <span>Enable Camera</span>
@@ -280,8 +300,8 @@ export const FacialAnalysisPage: React.FC = () => {
       {/* Main Viewfinder & Analysis Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Camera Viewfinder */}
-        <div className="lg:col-span-7 bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 rounded-2xl p-6 shadow-sm flex flex-col items-center justify-center">
-          <div className="w-full relative aspect-video bg-earth-100 dark:bg-forest-950 rounded-xl overflow-hidden border border-earth-200 dark:border-forest-800 flex items-center justify-center">
+        <div className="lg:col-span-7 bg-white dark:bg-forest-900 border border-earth-200/80 dark:border-forest-800 rounded-2xl p-6 shadow-soft flex flex-col items-center justify-center">
+          <div className="w-full relative aspect-video bg-earth-100 dark:bg-forest-950 rounded-xl overflow-hidden border border-earth-200/80 dark:border-forest-800 flex items-center justify-center">
             <video
               ref={videoRef}
               autoPlay
@@ -324,7 +344,7 @@ export const FacialAnalysisPage: React.FC = () => {
           </div>
 
           {/* Diagnostic Details Bar */}
-          <div className="mt-3 w-full p-2.5 rounded-xl bg-earth-50 dark:bg-forest-950 border border-earth-200 dark:border-forest-800 flex flex-wrap items-center justify-between gap-2 text-[11px] text-earth-600 dark:text-sage-400">
+          <div className="mt-3 w-full p-2.5 rounded-xl bg-earth-50 dark:bg-forest-950 border border-earth-200/80 dark:border-forest-800 flex flex-wrap items-center justify-between gap-2 text-[11px] text-earth-600 dark:text-sage-400">
             <div className="flex items-center gap-1.5">
               <span className={`w-2 h-2 rounded-full ${cameraActive ? 'bg-emerald-500 animate-pulse' : 'bg-earth-400'}`} />
               <span>Stream: <strong className="text-forest-900 dark:text-sage-200">{cameraActive ? 'Active' : 'Stopped'}</strong></span>
@@ -356,7 +376,7 @@ export const FacialAnalysisPage: React.FC = () => {
               <button
                 onClick={captureAndAnalyzeFrame}
                 disabled={analyzing}
-                className="px-3.5 py-1.5 rounded-lg bg-sage-600 hover:bg-sage-700 text-white text-xs font-medium transition-colors shadow-sm disabled:opacity-50"
+                className="px-3.5 py-1.5 rounded-lg bg-sage-600 hover:bg-sage-700 text-white text-xs font-medium transition-colors shadow-soft disabled:opacity-50"
               >
                 {analyzing ? 'Extracting Landmarks...' : 'Sample Frame Now'}
               </button>
@@ -365,7 +385,7 @@ export const FacialAnalysisPage: React.FC = () => {
         </div>
 
         {/* Real-time Signal Metrics */}
-        <div className="lg:col-span-5 bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 rounded-2xl p-6 shadow-sm flex flex-col justify-between">
+        <div className="lg:col-span-5 bg-white dark:bg-forest-900 border border-earth-200/80 dark:border-forest-800 rounded-2xl p-6 shadow-soft flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-base font-semibold text-forest-950 dark:text-sage-100">Extracted Expression Signals</h2>

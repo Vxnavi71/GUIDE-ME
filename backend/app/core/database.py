@@ -127,6 +127,13 @@ async def init_db_tables():
                             sync_conn.execute(text("ALTER TABLE wellness_metrics ADD COLUMN distance_km FLOAT DEFAULT 0.0"))
                         if "sleep_stages" not in columns:
                             sync_conn.execute(text("ALTER TABLE wellness_metrics ADD COLUMN sleep_stages JSON"))
+                        # ADD COLUMN leaves existing rows NULL, but the ORM declares this column
+                        # NOT NULL with a dict default. Without this backfill the rows written
+                        # before the column existed fail response validation and
+                        # GET /wellness/metrics returns 500 for the whole collection.
+                        sync_conn.execute(
+                            text("UPDATE wellness_metrics SET sleep_stages = '{}' WHERE sleep_stages IS NULL")
+                        )
                 except Exception as e:
                     logger.debug(f"Wellness metrics column check error: {e}")
 
@@ -139,8 +146,57 @@ async def init_db_tables():
                             sync_conn.execute(text("ALTER TABLE digital_wellbeing_metrics ADD COLUMN target_limit_minutes INTEGER DEFAULT 300"))
                         if "categories" not in dw_cols:
                             sync_conn.execute(text("ALTER TABLE digital_wellbeing_metrics ADD COLUMN categories JSON"))
+                        # Same backfill as wellness_metrics above: the column is NOT NULL in the
+                        # ORM, so rows predating it must be given the dict default.
+                        sync_conn.execute(
+                            text("UPDATE digital_wellbeing_metrics SET categories = '{}' WHERE categories IS NULL")
+                        )
                 except Exception as e:
                     logger.debug(f"Digital wellbeing column check error: {e}")
 
             await conn.run_sync(migrate_sqlite)
+
+        # Ensure default OCEAN Assessment and questions are seeded
+        def ensure_default_assessment(sync_conn):
+            from app.models.entities import Assessment, AssessmentQuestion
+            from app.ml.ocean_engine import OceanBigFiveEngine
+            from sqlalchemy.orm import Session
+
+            sync_session = Session(sync_conn)
+            try:
+                existing = (
+                    sync_session.query(Assessment)
+                    .filter(Assessment.assessment_type == "ocean_big_five", Assessment.is_active == True)
+                    .first()
+                )
+                if not existing:
+                    logger.info("Auto-provisioning default Big Five OCEAN assessment and question bank...")
+                    assessment = Assessment(
+                        title="IPIP Big Five Factor Personality Inventory",
+                        assessment_type="ocean_big_five",
+                        version="1.0.0",
+                        description="Validated 50-item psychometric inventory assessing Openness, Conscientiousness, Extraversion, Agreeableness, and Neuroticism.",
+                        is_active=True,
+                    )
+                    sync_session.add(assessment)
+                    sync_session.flush()
+
+                    for idx, q_data in enumerate(OceanBigFiveEngine.QUESTIONS_DATA):
+                        question = AssessmentQuestion(
+                            assessment_id=assessment.id,
+                            question_text=q_data["text"],
+                            domain_trait=q_data["trait"],
+                            reverse_scored=q_data["reverse"],
+                            order_index=idx + 1,
+                        )
+                        sync_session.add(question)
+                    sync_session.commit()
+                    logger.info(f"Default Big Five Assessment provisioned with ID: {assessment.id}")
+            except Exception as exc:
+                sync_session.rollback()
+                logger.warning(f"Default assessment provisioning notice: {exc}")
+            finally:
+                sync_session.close()
+
+        await conn.run_sync(ensure_default_assessment)
 

@@ -14,7 +14,9 @@ fi
 echo "=== 1. Running Backend Pytest Test Suite ==="
 cd "$PROJECT_ROOT/backend"
 export PYTHONPATH="."
-python -m pytest tests/test_backend.py -v
+# Run the whole suite: naming a single file here previously hid failures in
+# tests/test_ai_companion.py while still printing an all-clear.
+python -m pytest tests/ -v
 
 echo ""
 echo "=== 2. Running Frontend Type-Check & Production Build ==="

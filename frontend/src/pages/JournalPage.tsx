@@ -91,11 +91,11 @@ export const JournalPage: React.FC = () => {
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-forest-950 dark:text-sage-100 flex items-center gap-2">
+          <h1 className="text-2xl font-bold tracking-tight text-forest-950 dark:text-sage-50 flex items-center gap-2">
             <BookOpen className="w-5 h-5 text-sage-600 dark:text-sage-400" />
             <span>Journal & NLP Thought Reflection</span>
           </h1>
-          <p className="text-xs text-earth-600 dark:text-sage-400 mt-0.5">
+          <p className="text-sm text-earth-600 dark:text-sage-400 mt-1 leading-relaxed">
             Expressive writing with instant cognitive distortion detection and evidence-based re-framing.
           </p>
         </div>
@@ -105,7 +105,7 @@ export const JournalPage: React.FC = () => {
         {/* Editor & List Column */}
         <div className="lg:col-span-7 space-y-6">
           {/* Editor Card */}
-          <div className="bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 rounded-2xl p-5 shadow-sm">
+          <div className="bg-white dark:bg-forest-900 border border-earth-200/80 dark:border-forest-800 rounded-2xl p-5 shadow-soft">
             <h2 className="text-sm font-semibold text-forest-950 dark:text-sage-100 mb-3 flex items-center gap-2">
               <Plus className="w-4 h-4 text-sage-600" />
               <span>Compose New Reflection</span>
@@ -158,7 +158,7 @@ export const JournalPage: React.FC = () => {
                 <button
                   type="submit"
                   disabled={loading || !title.trim() || !content.trim()}
-                  className="px-4 py-2 rounded-xl bg-sage-600 hover:bg-sage-700 text-white text-xs font-semibold transition-colors shadow-sm disabled:opacity-50 flex items-center gap-1.5"
+                  className="px-4 py-2 rounded-xl bg-sage-600 hover:bg-sage-700 text-white text-xs font-semibold transition-colors shadow-soft disabled:opacity-50 flex items-center gap-1.5"
                 >
                   <Sparkles className="w-3.5 h-3.5" />
                   <span>{loading ? 'Analyzing with NLP...' : 'Save & Analyze Entry'}</span>
@@ -181,8 +181,8 @@ export const JournalPage: React.FC = () => {
                   onClick={() => setSelectedJournal(j)}
                   className={`p-4 rounded-xl border transition-all cursor-pointer ${
                     selectedJournal?.id === j.id
-                      ? 'border-sage-500 bg-sage-50/40 dark:bg-forest-800/80 shadow-sm'
-                      : 'border-earth-200 dark:border-forest-800 bg-white dark:bg-forest-900 hover:border-earth-300'
+                      ? 'border-sage-500 bg-sage-50/40 dark:bg-forest-800/80 shadow-soft'
+                      : 'border-earth-200/80 dark:border-forest-800 bg-white dark:bg-forest-900 hover:border-earth-300'
                   }`}
                 >
                   <div className="flex items-center justify-between mb-1">
@@ -222,7 +222,7 @@ export const JournalPage: React.FC = () => {
         {/* NLP Analysis & Reflection Insight Column */}
         <div className="lg:col-span-5">
           {selectedJournal ? (
-            <div className="bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 rounded-2xl p-6 shadow-sm space-y-5 sticky top-6">
+            <div className="bg-white dark:bg-forest-900 border border-earth-200/80 dark:border-forest-800 rounded-2xl p-6 shadow-soft space-y-5 sticky top-6">
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-[10px] uppercase font-bold text-sage-600 dark:text-sage-400">
@@ -238,27 +238,58 @@ export const JournalPage: React.FC = () => {
               </div>
 
               {/* Sentiment & Emotion */}
-              <div className="p-4 rounded-xl bg-earth-50 dark:bg-forest-800/60 border border-earth-200 dark:border-forest-700 space-y-2">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-earth-600 dark:text-sage-300 font-medium">Dominant Emotional Tone:</span>
-                  <span className="font-semibold text-forest-900 dark:text-sage-100 capitalize">
-                    {selectedJournal.analysis?.dominant_emotion || '—'}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-earth-600 dark:text-sage-300 font-medium">Sentiment Valence:</span>
-                  {selectedJournal.analysis?.sentiment_score !== null && selectedJournal.analysis?.sentiment_score !== undefined ? (
-                    <span className={`font-semibold ${
-                      selectedJournal.analysis.sentiment_score >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'
-                    }`}>
-                      {selectedJournal.analysis.sentiment_score > 0 ? '+' : ''}
-                      {selectedJournal.analysis.sentiment_score}
-                    </span>
-                  ) : (
-                    <span className="text-earth-400 dark:text-forest-600 font-semibold">—</span>
-                  )}
-                </div>
-              </div>
+              {(() => {
+                const score = selectedJournal.analysis?.sentiment_score;
+                const hasScore = score !== null && score !== undefined;
+                // Map the -1..+1 valence onto a 0..100 track so the marker reads at a glance.
+                const markerPct = hasScore ? ((Number(score) + 1) / 2) * 100 : 50;
+                const positive = hasScore && Number(score) >= 0;
+
+                return (
+                  <div className="p-4 rounded-xl bg-earth-50 dark:bg-forest-800/60 border border-earth-200 dark:border-forest-700 space-y-4">
+                    <div>
+                      <div className="gm-eyebrow mb-1.5">Dominant Emotional Tone</div>
+                      <div className="text-base font-bold capitalize text-forest-950 dark:text-sage-50 tracking-tight">
+                        {selectedJournal.analysis?.dominant_emotion || '—'}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="flex items-baseline justify-between mb-2">
+                        <span className="gm-eyebrow">Sentiment Valence</span>
+                        <span
+                          className={`text-sm font-bold tabular-nums ${
+                            !hasScore
+                              ? 'text-earth-400 dark:text-forest-600'
+                              : positive
+                                ? 'text-emerald-600 dark:text-emerald-400'
+                                : 'text-amber-600 dark:text-amber-400'
+                          }`}
+                        >
+                          {hasScore ? `${Number(score) > 0 ? '+' : ''}${score}` : '—'}
+                        </span>
+                      </div>
+
+                      {/* Valence track: negative on the left, positive on the right. */}
+                      <div className="relative h-2 rounded-full bg-gradient-to-r from-amber-300 via-earth-200 to-emerald-300 dark:from-amber-800 dark:via-forest-700 dark:to-emerald-800">
+                        {hasScore && (
+                          <span
+                            className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3.5 h-3.5 rounded-full
+                                       bg-white dark:bg-sage-100 border-2 border-forest-900 dark:border-forest-950
+                                       shadow-soft transition-all duration-500 ease-out-expo"
+                            style={{ left: `${markerPct}%` }}
+                          />
+                        )}
+                      </div>
+                      <div className="flex justify-between mt-1.5 text-[10px] font-medium text-earth-500 dark:text-sage-500">
+                        <span>Heavier</span>
+                        <span>Neutral</span>
+                        <span>Lighter</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Cognitive Distortions Warning & Reframing */}
               {selectedJournal.analysis?.cognitive_distortions?.length > 0 ? (
@@ -269,12 +300,13 @@ export const JournalPage: React.FC = () => {
                   </div>
                   <div className="flex flex-wrap gap-1.5">
                     {selectedJournal.analysis.cognitive_distortions.map((d: string, idx: number) => (
-                      <span key={idx} className="text-[11px] bg-amber-100 dark:bg-amber-900/50 text-amber-900 dark:text-amber-200 px-2 py-0.5 rounded-md font-medium">
+                      <span key={idx} className="text-[11px] bg-amber-100 dark:bg-amber-900/50 text-amber-900 dark:text-amber-200 px-2 py-1 rounded-lg font-semibold">
                         {d}
                       </span>
                     ))}
                   </div>
-                  <p className="text-xs text-amber-900 dark:text-amber-300 leading-relaxed mt-1">
+                  {/* The reflection is the substance of the feedback, so it gets real reading size. */}
+                  <p className="text-[13px] text-amber-900 dark:text-amber-200 leading-relaxed pt-1">
                     {selectedJournal.analysis.reflection_prompt}
                   </p>
                 </div>
@@ -307,7 +339,7 @@ export const JournalPage: React.FC = () => {
               </div>
             </div>
           ) : (
-            <div className="bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 rounded-2xl p-8 text-center text-xs text-earth-400 dark:text-sage-500 shadow-sm">
+            <div className="bg-white dark:bg-forest-900 border border-earth-200/80 dark:border-forest-800 rounded-2xl p-8 text-center text-xs text-earth-400 dark:text-sage-500 shadow-soft">
               No journal entries recorded yet. Begin by writing your first reflection above to view automated NLP sentiment, cognitive pattern mapping, and personalized reflection prompts.
             </div>
           )}

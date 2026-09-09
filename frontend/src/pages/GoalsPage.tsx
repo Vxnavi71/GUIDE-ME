@@ -222,11 +222,11 @@ export const GoalsPage: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold text-forest-950 dark:text-sage-100 flex items-center gap-2">
+          <h1 className="text-2xl font-bold tracking-tight text-forest-950 dark:text-sage-50 flex items-center gap-2">
             <Target className="w-5 h-5 text-sage-600 dark:text-sage-400" />
             <span>Intentional Goals & Daily Habits</span>
           </h1>
-          <p className="text-xs text-earth-600 dark:text-sage-400 mt-0.5">
+          <p className="text-sm text-earth-600 dark:text-sage-400 mt-1 leading-relaxed">
             Cultivate mindful habits and steady progress with real-time tracking and streaks.
           </p>
         </div>
@@ -238,7 +238,7 @@ export const GoalsPage: React.FC = () => {
               onClick={() => setActiveTab('habits')}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
                 activeTab === 'habits'
-                  ? 'bg-white dark:bg-forest-900 text-forest-950 dark:text-sage-100 shadow-sm'
+                  ? 'bg-white dark:bg-forest-900 text-forest-950 dark:text-sage-100 shadow-soft'
                   : 'text-earth-600 dark:text-sage-400 hover:text-forest-900'
               }`}
             >
@@ -249,7 +249,7 @@ export const GoalsPage: React.FC = () => {
               onClick={() => setActiveTab('goals')}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
                 activeTab === 'goals'
-                  ? 'bg-white dark:bg-forest-900 text-forest-950 dark:text-sage-100 shadow-sm'
+                  ? 'bg-white dark:bg-forest-900 text-forest-950 dark:text-sage-100 shadow-soft'
                   : 'text-earth-600 dark:text-sage-400 hover:text-forest-900'
               }`}
             >
@@ -260,7 +260,7 @@ export const GoalsPage: React.FC = () => {
 
           <button
             onClick={() => (activeTab === 'habits' ? openHabitModal() : openGoalModal())}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-sage-600 hover:bg-sage-700 text-white text-xs font-semibold transition-colors shadow-sm"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-sage-600 hover:bg-sage-700 text-white text-xs font-semibold transition-colors shadow-soft"
           >
             <Plus className="w-4 h-4" />
             <span>{activeTab === 'habits' ? 'New Habit' : 'New Goal'}</span>
@@ -272,7 +272,7 @@ export const GoalsPage: React.FC = () => {
       {activeTab === 'habits' && (
         <div className="space-y-6">
           {/* Daily Habit Summary Banner */}
-          <div className="bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 rounded-2xl p-5 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="bg-white dark:bg-forest-900 border border-earth-200/80 dark:border-forest-800 rounded-2xl p-5 shadow-soft flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/50 flex items-center justify-center">
                 <Flame className="w-6 h-6 text-amber-500" />
@@ -281,7 +281,7 @@ export const GoalsPage: React.FC = () => {
                 <h2 className="text-sm font-semibold text-forest-950 dark:text-sage-100">
                   Today's Habit Pulse: {completedTodayCount} of {habits.length} Completed
                 </h2>
-                <p className="text-xs text-earth-600 dark:text-sage-400 mt-0.5">
+                <p className="text-sm text-earth-600 dark:text-sage-400 mt-1 leading-relaxed">
                   Consistent micro-habits anchor mental wellbeing and focus throughout the day.
                 </p>
               </div>
@@ -302,7 +302,7 @@ export const GoalsPage: React.FC = () => {
 
           {/* Habits List */}
           {habits.length === 0 ? (
-            <div className="text-center py-12 bg-white dark:bg-forest-900 border border-dashed border-earth-200 dark:border-forest-800 rounded-2xl p-8">
+            <div className="text-center py-12 bg-white dark:bg-forest-900 border border-dashed border-earth-200/80 dark:border-forest-800 rounded-2xl p-8">
               <Flame className="w-10 h-10 text-amber-400 mx-auto mb-3 opacity-80" />
               <h3 className="text-sm font-semibold text-forest-950 dark:text-sage-100">No habits tracked yet</h3>
               <p className="text-xs text-earth-600 dark:text-sage-400 mt-1 max-w-sm mx-auto">
@@ -320,10 +320,10 @@ export const GoalsPage: React.FC = () => {
               {habits.map((habit) => (
                 <div
                   key={habit.id}
-                  className={`bg-white dark:bg-forest-900 border rounded-2xl p-5 shadow-sm flex flex-col justify-between transition-all ${
+                  className={`bg-white dark:bg-forest-900 border rounded-2xl p-5 shadow-soft flex flex-col justify-between transition-all ${
                     habit.completed_today
                       ? 'border-emerald-300 dark:border-emerald-800/60 bg-emerald-50/20 dark:bg-emerald-950/10'
-                      : 'border-earth-200 dark:border-forest-800'
+                      : 'border-earth-200/80 dark:border-forest-800'
                   }`}
                 >
                   <div>
@@ -352,7 +352,7 @@ export const GoalsPage: React.FC = () => {
                       onClick={() => handleToggleHabit(habit.id)}
                       className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
                         habit.completed_today
-                          ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm'
+                          ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-soft'
                           : 'bg-earth-100 dark:bg-forest-800 hover:bg-earth-200 dark:hover:bg-forest-700 text-earth-700 dark:text-sage-300'
                       }`}
                     >
@@ -397,7 +397,7 @@ export const GoalsPage: React.FC = () => {
       {activeTab === 'goals' && (
         <div className="space-y-6">
           {goals.length === 0 ? (
-            <div className="text-center py-12 bg-white dark:bg-forest-900 border border-dashed border-earth-200 dark:border-forest-800 rounded-2xl p-8">
+            <div className="text-center py-12 bg-white dark:bg-forest-900 border border-dashed border-earth-200/80 dark:border-forest-800 rounded-2xl p-8">
               <Target className="w-10 h-10 text-sage-400 mx-auto mb-3 opacity-80" />
               <h3 className="text-sm font-semibold text-forest-950 dark:text-sage-100">No milestone goals set yet</h3>
               <p className="text-xs text-earth-600 dark:text-sage-400 mt-1 max-w-sm mx-auto">
@@ -415,7 +415,7 @@ export const GoalsPage: React.FC = () => {
               {goals.map((g) => (
                 <div
                   key={g.id}
-                  className="bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 rounded-2xl p-6 shadow-sm flex flex-col justify-between"
+                  className="bg-white dark:bg-forest-900 border border-earth-200/80 dark:border-forest-800 rounded-2xl p-6 shadow-soft flex flex-col justify-between"
                 >
                   <div>
                     <div className="flex items-center justify-between mb-2">
@@ -487,7 +487,7 @@ export const GoalsPage: React.FC = () => {
       {/* Habit Create / Edit Modal */}
       {showHabitModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4">
+          <div className="bg-white dark:bg-forest-900 border border-earth-200/80 dark:border-forest-800 rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4">
             <h2 className="text-base font-semibold text-forest-950 dark:text-sage-100">
               {editingHabit ? 'Edit Habit' : 'Create Daily Habit'}
             </h2>
@@ -568,7 +568,7 @@ export const GoalsPage: React.FC = () => {
       {/* Goal Create / Edit Modal */}
       {showGoalModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4">
+          <div className="bg-white dark:bg-forest-900 border border-earth-200/80 dark:border-forest-800 rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4">
             <h2 className="text-base font-semibold text-forest-950 dark:text-sage-100">
               {editingGoal ? 'Edit Goal' : 'Create New Milestone Goal'}
             </h2>

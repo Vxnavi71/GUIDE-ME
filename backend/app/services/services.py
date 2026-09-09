@@ -1,7 +1,10 @@
+import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
+
+logger = logging.getLogger("guideme.services")
 
 from app.core.security import verify_password, get_password_hash, validate_password_strength, create_access_token, create_refresh_token, decode_token
 from app.repositories import (
@@ -105,13 +108,16 @@ class AuthService:
 
 class JournalService:
     def __init__(self, db: AsyncSession):
+        self.db = db
         self.journal_repo = JournalRepository(db)
         self.audit_repo = AuditRepository(db)
 
     async def create_entry(self, user_id: str, title: str, content: str, tags: List[str], mood_context: Optional[str]) -> Any:
         journal = await self.journal_repo.create(user_id, title, content, tags, mood_context)
-        # NLP analysis
+        # NLP analysis grounds the reflection in measurable signals; the language model then
+        # writes the actual feedback the user reads.
         nlp_res = NLPEmotionJournalEngine.analyze_text(content)
+        reflection = await self._generate_reflection(user_id, content, mood_context, nlp_res)
         analysis = await self.journal_repo.attach_analysis(
             journal_id=journal.id,
             user_id=user_id,
@@ -119,11 +125,87 @@ class JournalService:
             dominant_emotion=nlp_res["dominant_emotion"],
             cognitive_distortions=nlp_res["cognitive_distortions"],
             topics=nlp_res["topics"],
-            reflection_prompt=nlp_res["reflection_prompt"],
+            reflection_prompt=reflection,
             recommended_action=nlp_res["recommended_action"],
         )
         await self.audit_repo.log_action(user_id, "CREATE", "journals", details={"journal_id": journal.id})
         return await self.journal_repo.get_by_id(journal.id, user_id)
+
+    async def _generate_reflection(
+        self,
+        user_id: str,
+        content: str,
+        mood_context: Optional[str],
+        nlp_res: Dict[str, Any],
+    ) -> str:
+        """
+        Produces the reflection the user sees after submitting an entry.
+
+        The active LLM provider writes it, grounded in the NLP signals so the model responds to
+        what the entry actually contains rather than inventing detail. If the provider is
+        unavailable or errors, we fall back to the deterministic NLP prompt so the user is never
+        left without feedback.
+        """
+        fallback = nlp_res.get("reflection_prompt") or ""
+        if not content or not content.strip():
+            return fallback
+
+        distortions = nlp_res.get("cognitive_distortions") or []
+        topics = nlp_res.get("topics") or []
+        sentiment = nlp_res.get("sentiment_score")
+
+        system_prompt = (
+            "You are a warm, evidence-based reflective journaling companion. "
+            "Write 2-4 sentences of personalised reflection on the user's journal entry.\n"
+            "Rules:\n"
+            "- Speak directly to the user in second person.\n"
+            "- Name what you actually notice in their words; do not invent events.\n"
+            "- If a cognitive distortion is listed, gently name the pattern and offer one reframe.\n"
+            "- End with one concrete, small, doable next step.\n"
+            "- Never diagnose, and never claim to be a clinician.\n"
+            "- Plain prose only: no bullet points, headings, or markdown.\n\n"
+            f"Detected emotion: {nlp_res.get('dominant_emotion')}\n"
+            f"Sentiment score (-1 negative to +1 positive): {sentiment}\n"
+            f"Cognitive distortions detected: {', '.join(distortions) if distortions else 'none'}\n"
+            f"Topics: {', '.join(topics) if topics else 'general reflection'}\n"
+            f"Self-reported mood context: {mood_context or 'not provided'}"
+        )
+
+        try:
+            from app.ai.providers import MockLLMProvider
+
+            provider = get_llm_provider()
+
+            # MockLLMProvider is an offline keyword agent, not a language model: it cannot follow
+            # a system prompt and would answer a journal entry with a chat greeting. When no model
+            # is configured we therefore keep the NLP-derived reflection, which at least quotes the
+            # user's own wording and names the detected pattern.
+            if isinstance(provider, MockLLMProvider):
+                logger.info(
+                    "No language model configured; using NLP-derived journal reflection for user %s.",
+                    user_id,
+                )
+                return fallback
+
+            text, _ = await provider.generate_response(
+                user_message=f"Here is my journal entry:\n\n{content}",
+                system_prompt=system_prompt,
+                conversation_history=[],
+                user_id=user_id,
+                db=self.db,
+            )
+            text = (text or "").strip()
+            if text:
+                logger.info(
+                    "Journal reflection generated for user %s via %s",
+                    user_id,
+                    type(provider).__name__,
+                )
+                return text
+        except Exception as exc:
+            logger.warning("Journal reflection generation failed (%s); using NLP fallback.", exc)
+
+        return fallback
 
     async def list_entries(self, user_id: str) -> List[Any]:
         return await self.journal_repo.list_by_user(user_id)
@@ -150,12 +232,45 @@ class AssessmentService:
     async def submit_assessment(self, user_id: str, assessment_id: str, answers: List[Dict[str, Any]]) -> Any:
         assessment = await self.assessment_repo.get_default_assessment()
         questions_map = {}
-        if assessment:
-            for q in assessment.questions:
-                questions_map[q.id] = {
-                    "domain_trait": q.domain_trait,
-                    "reverse_scored": q.reverse_scored,
+        if not assessment:
+            from app.models.entities import Assessment, AssessmentQuestion
+            assessment = Assessment(
+                title="IPIP Big Five Factor Personality Inventory",
+                assessment_type="ocean_big_five",
+                version="1.0.0",
+                description="Validated 50-item psychometric inventory assessing Openness, Conscientiousness, Extraversion, Agreeableness, and Neuroticism.",
+                is_active=True,
+            )
+            self.assessment_repo.db.add(assessment)
+            await self.assessment_repo.db.flush()
+
+            for idx, q_data in enumerate(OceanBigFiveEngine.QUESTIONS_DATA):
+                question = AssessmentQuestion(
+                    assessment_id=assessment.id,
+                    question_text=q_data["text"],
+                    domain_trait=q_data["trait"],
+                    reverse_scored=q_data["reverse"],
+                    order_index=idx + 1,
+                )
+                self.assessment_repo.db.add(question)
+                questions_map[question.id] = {
+                    "domain_trait": question.domain_trait,
+                    "reverse_scored": question.reverse_scored,
                 }
+            await self.assessment_repo.db.flush()
+        else:
+            if assessment.questions:
+                for q in assessment.questions:
+                    questions_map[q.id] = {
+                        "domain_trait": q.domain_trait,
+                        "reverse_scored": q.reverse_scored,
+                    }
+
+        if assessment:
+            # Clients send a placeholder id because the questions endpoint does not expose one.
+            # Resolve it to the real row so the stored result keeps a valid foreign key
+            # (SQLite tolerates a dangling value; PostgreSQL rejects it outright).
+            assessment_id = assessment.id
 
         scores = OceanBigFiveEngine.calculate_scores(answers, questions_map)
         dominant, summary, careers = OceanBigFiveEngine.interpret_profile(scores)

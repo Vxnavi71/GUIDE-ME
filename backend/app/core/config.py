@@ -1,6 +1,10 @@
+from pathlib import Path
 from typing import List, Union
 from pydantic import AnyHttpUrl, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_BACKEND_DIR = Path(__file__).resolve().parents[2]
+_CANONICAL_SQLITE_PATH = (_BACKEND_DIR / "guideme_local.db").as_posix()
 
 
 class Settings(BaseSettings):
@@ -21,8 +25,8 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/guideme_db"
     DATABASE_URL_SYNC: str = "postgresql://postgres:postgres@localhost:5432/guideme_db"
     DATABASE_FALLBACK_SQLITE: bool = True
-    DATABASE_SQLITE_URL: str = "sqlite+aiosqlite:///./guideme_local.db"
-    DATABASE_SQLITE_URL_SYNC: str = "sqlite:///./guideme_local.db"
+    DATABASE_SQLITE_URL: str = f"sqlite+aiosqlite:///{_CANONICAL_SQLITE_PATH}"
+    DATABASE_SQLITE_URL_SYNC: str = f"sqlite:///{_CANONICAL_SQLITE_PATH}"
 
     @field_validator("DATABASE_URL", mode="before")
     @classmethod

@@ -171,11 +171,11 @@ export const StressDistressPage: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold text-forest-950 dark:text-sage-100 flex items-center gap-2">
+          <h1 className="text-2xl font-bold tracking-tight text-forest-950 dark:text-sage-50 flex items-center gap-2">
             <Activity className="w-5 h-5 text-sage-600 dark:text-sage-400" />
             <span>Stress & Distress Multi-Signal Monitor</span>
           </h1>
-          <p className="text-xs text-earth-600 dark:text-sage-400 mt-0.5">
+          <p className="text-sm text-earth-600 dark:text-sage-400 mt-1 leading-relaxed">
             Evaluates physiological autonomic tone, digital screen exposure, and personal baseline deviation without synthetic approximations.
           </p>
         </div>
@@ -183,7 +183,7 @@ export const StressDistressPage: React.FC = () => {
         <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => setShowMoodModal(true)}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 text-xs font-semibold hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors shadow-sm"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 text-xs font-semibold hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors shadow-soft"
           >
             <Smile className="w-3.5 h-3.5" />
             <span>Log Mood Pulse</span>
@@ -191,7 +191,7 @@ export const StressDistressPage: React.FC = () => {
           <button
             onClick={handleEvaluate}
             disabled={evaluating}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-sage-600 hover:bg-sage-700 text-white text-xs font-semibold transition-colors shadow-sm disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-sage-600 hover:bg-sage-700 text-white text-xs font-semibold transition-colors shadow-soft disabled:opacity-50"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${evaluating ? 'animate-spin' : ''}`} />
             <span>{evaluating ? 'Evaluating Signals...' : 'Re-Evaluate Stress'}</span>
@@ -208,7 +208,7 @@ export const StressDistressPage: React.FC = () => {
       {/* Main Metric Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Composite Score Circular Gauge Card */}
-        <div className="bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 rounded-2xl p-6 shadow-sm flex flex-col justify-between">
+        <div className="bg-white dark:bg-forest-900 border border-earth-200/80 dark:border-forest-800 rounded-2xl p-6 shadow-soft flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between">
               <span className="text-[10px] uppercase font-bold text-earth-500 dark:text-sage-400 tracking-wider">
@@ -304,7 +304,7 @@ export const StressDistressPage: React.FC = () => {
         </div>
 
         {/* Personal Baseline Deviation */}
-        <div className="bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 rounded-2xl p-6 shadow-sm flex flex-col justify-between">
+        <div className="bg-white dark:bg-forest-900 border border-earth-200/80 dark:border-forest-800 rounded-2xl p-6 shadow-soft flex flex-col justify-between">
           <div>
             <span className="text-[10px] uppercase font-bold text-earth-500 dark:text-sage-400 tracking-wider">
               Personal Baseline Comparison
@@ -356,7 +356,7 @@ export const StressDistressPage: React.FC = () => {
         </div>
 
         {/* Evidence & Signals Breakdown */}
-        <div className="bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 rounded-2xl p-6 shadow-sm flex flex-col justify-between">
+        <div className="bg-white dark:bg-forest-900 border border-earth-200/80 dark:border-forest-800 rounded-2xl p-6 shadow-soft flex flex-col justify-between">
           <div>
             <span className="text-[10px] uppercase font-bold text-earth-500 dark:text-sage-400 tracking-wider">
               Active Signal Evidence
@@ -394,8 +394,8 @@ export const StressDistressPage: React.FC = () => {
       {/* Distress Event Modal with Verified Indian Crisis Helplines */}
       {showDistressModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 rounded-2xl max-w-lg w-full p-6 shadow-xl space-y-4">
-            <div className="flex items-center justify-between border-b border-earth-200 dark:border-forest-800 pb-3">
+          <div className="bg-white dark:bg-forest-900 border border-earth-200/80 dark:border-forest-800 rounded-2xl max-w-lg w-full p-6 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b border-earth-200/80 dark:border-forest-800 pb-3">
               <h2 className="text-base font-semibold text-forest-950 dark:text-sage-100 flex items-center gap-2">
                 <AlertTriangle className="w-5 h-5 text-amber-500" />
                 <span>Log Acute Distress Event</span>
@@ -533,7 +533,7 @@ export const StressDistressPage: React.FC = () => {
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow-sm transition-colors"
+                    className="px-4 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow-soft transition-colors"
                   >
                     Record Event & View De-escalation
                   </button>
@@ -547,8 +547,8 @@ export const StressDistressPage: React.FC = () => {
       {/* Mood Pulse Check-In Modal */}
       {showMoodModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-5">
-            <div className="flex items-center justify-between border-b border-earth-200 dark:border-forest-800 pb-3">
+          <div className="bg-white dark:bg-forest-900 border border-earth-200/80 dark:border-forest-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-5">
+            <div className="flex items-center justify-between border-b border-earth-200/80 dark:border-forest-800 pb-3">
               <div className="flex items-center gap-2">
                 <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-600">
                   <Smile className="w-5 h-5" />
@@ -608,7 +608,7 @@ export const StressDistressPage: React.FC = () => {
                       onClick={() => setEnergyLevel(lvl)}
                       className={`py-2 px-3 text-xs font-medium rounded-xl border capitalize transition-all ${
                         energyLevel === lvl
-                          ? 'bg-sage-600 border-sage-600 text-white shadow-sm'
+                          ? 'bg-sage-600 border-sage-600 text-white shadow-soft'
                           : 'bg-earth-50 dark:bg-forest-800/60 border-earth-200 dark:border-forest-700 text-earth-700 dark:text-sage-300 hover:border-sage-400'
                       }`}
                     >
@@ -636,7 +636,7 @@ export const StressDistressPage: React.FC = () => {
                         className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
                           selected
                             ? 'bg-sage-100 dark:bg-forest-800 border-sage-500 text-sage-800 dark:text-sage-200 font-medium'
-                            : 'bg-white dark:bg-forest-900 border-earth-200 dark:border-forest-800 text-earth-600 dark:text-sage-400 hover:border-earth-400'
+                            : 'bg-white dark:bg-forest-900 border-earth-200/80 dark:border-forest-800 text-earth-600 dark:text-sage-400 hover:border-earth-400'
                         }`}
                       >
                         {tag}
@@ -659,7 +659,7 @@ export const StressDistressPage: React.FC = () => {
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-earth-200 dark:border-forest-800">
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-earth-200/80 dark:border-forest-800">
                 <button
                   type="button"
                   onClick={() => setShowMoodModal(false)}
@@ -670,7 +670,7 @@ export const StressDistressPage: React.FC = () => {
                 <button
                   type="submit"
                   disabled={submittingMood}
-                  className="px-4 py-2 text-xs font-semibold text-white bg-sage-600 hover:bg-sage-700 rounded-xl transition-colors shadow-sm disabled:opacity-50"
+                  className="px-4 py-2 text-xs font-semibold text-white bg-sage-600 hover:bg-sage-700 rounded-xl transition-colors shadow-soft disabled:opacity-50"
                 >
                   {submittingMood ? 'Recording...' : 'Save Mood Pulse'}
                 </button>

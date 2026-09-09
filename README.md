@@ -1,140 +1,178 @@
 # GUIDE ME - FINAL
 
-> **Enterprise Multimodal Mental Wellness, Digital Balance, and Personal Guidance Platform**  
-> *An eco-friendly, privacy-first, scientifically-grounded clinical companion for holistic vitality.*
+> **Multimodal Mental Wellness, Digital Balance, and Personal Guidance Platform**
+> *A privacy-first, evidence-informed wellness companion — web app plus Android build.*
 
 ---
 
 ## 1. GUIDE ME Concept
 
-**GUIDE ME** is an enterprise-grade multimodal wellness and personal guidance ecosystem. It integrates physiological signals, digital screen exposure, cognitive thought patterns, and scientifically validated psychometrics into personalized, explainable, and responsible guidance.
+**GUIDE ME** is a multimodal wellness and personal guidance platform. It combines physiological
+signals, digital screen exposure, cognitive thought patterns, and a validated psychometric
+inventory into personalised, explainable guidance.
 
-Unlike conventional wellness applications that impose generic population ideals or violate user privacy through dark biometric storage, GUIDE ME adheres to the principle:
+Rather than comparing you against population averages, GUIDE ME evaluates you against your own
+recent history:
 
 ```
 COLLECT → VALIDATE → NORMALIZE → UNDERSTAND → ANALYZE → ESTIMATE → EXPLAIN → PERSONALIZE → GUIDE
 ```
 
+> [!IMPORTANT]
+> **Not a medical device.** GUIDE ME is for educational self-awareness and lifestyle balance. It
+> does not diagnose or treat any condition. See §16 for crisis resources.
+
 ---
 
 ## 2. Product Objectives
 
-1. **Holistic Vitality**: Bridge emotional well-being, autonomic recovery, and conscious digital engagement into a unified dashboard.
-2. **Personal Baseline Sovereignty**: Evaluate stress and mood against the user's historical rolling norms ($z$-score deviation) rather than arbitrary population averages.
-3. **Privacy-First In-Memory Processing**: Analyze camera-based facial landmarks and typing dynamics in volatile RAM with zero raw biometric storage.
-4. **Cognitive Clarity**: Equip users with automated natural language reflection tools that identify cognitive distortions (such as catastrophizing and all-or-nothing thinking) and offer evidence-based re-framing.
-5. **Psychometric Career Alignment**: Map Big Five (OCEAN) personality traits to low-friction career and mastery pathways.
-6. **Eco-Friendly Calm Interface**: Provide a peaceful sandstone, sage, and forest palette with dark and light modes, accessible contrast, and low cognitive overhead.
+1. **Holistic Vitality** — bring emotional well-being, autonomic recovery, and conscious digital
+   engagement into one dashboard.
+2. **Personal Baseline** — evaluate stress against your own rolling history ($z$-score deviation)
+   rather than arbitrary population norms.
+3. **Privacy-First Processing** — analyse camera frames in memory, with no raw biometric storage.
+4. **Cognitive Clarity** — surface cognitive distortions (catastrophizing, all-or-nothing thinking)
+   and offer constructive reframing.
+5. **Psychometric Career Alignment** — map Big Five (OCEAN) traits to career and mastery pathways.
+6. **Calm Interface** — a muted sage, earth, and forest palette with dark and light modes.
 
 ---
 
-## 3. Comprehensive Feature Suite
+## 3. Feature Suite
 
-- **Eco-Friendly Calm UI**: Muted sage green, sandstone, and forest slate palette; dark/light theme toggle; responsive design.
-- **AI Wellness Companion**: Empathetic conversational companion with clinical guardrails, context assembly, and transparent long-term memory inspection and deletion.
-- **Camera-Based Facial Signals**: Live browser camera integration (`navigator.mediaDevices.getUserMedia()`), in-memory frame analysis, and probabilistic indicators.
-- **Big Five (OCEAN) Personality Inventory**: 50-item IPIP assessment, interactive radar/bar charts, and career strength mapping.
-- **Cognitive Journaling**: NLP emotion classification, continuous sentiment scoring, cognitive distortion detection, and constructive re-framing.
-- **Multimodal Stress & Distress Monitor**: Multi-signal composite scoring, personal baseline deviation tracking, and acute distress event logging with immediate crisis escalation.
-- **Wearable Hub & Autonomic Sync**: Heart rate variability (HRV), sleep architecture, resting heart rate, and step count sync supporting BioSensor Simulator, Apple HealthKit, Fitbit, and Google Health Connect.
-- **Digital Wellbeing Center**: Screen exposure analytics, deep focus tracking, notification impact, and evening wind-down curfews.
-- **Intentional Goals & Milestones**: Interactive habit checklists with real-time progress calculations.
-- **Safety Center**: International emergency crisis resources (US/Canada 988, UK 116 123, EU 112, Global findahelpline.com), emergency contacts, and one-click SOS support.
-- **Privacy & Sovereignty Center**: Full JSON data export (portability), granular consent toggles, and permanent account erasure.
+| Feature | What it actually does today |
+|---|---|
+| **AI Wellness Companion** | Conversational companion with crisis guardrails, context assembly, and inspectable long-term memory. Uses Google Gemini when an API key is configured; otherwise runs a built-in offline heuristic agent (see §12). |
+| **Camera Facial Signals** | Live browser camera via `getUserMedia()`. Frames are analysed in memory (OpenCV Haar cascade + pixel-region proxies) and never stored. Continuous sampling every 3s while the tab is focused. |
+| **Big Five (OCEAN)** | Full 50-item IPIP inventory — 10 items per trait, 18 reverse-keyed. Radar and bar charts, plus career strength mapping. |
+| **Cognitive Journaling** | Lexicon-based sentiment scoring with negation handling, emotion tagging, regex cognitive-distortion detection across 5 patterns, and reframing prompts. |
+| **Stress & Distress Monitor** | Weighted 5-signal composite score, personal baseline deviation, and acute distress logging with crisis escalation. |
+| **Wearable Hub** | Ring-based daily activity summary, sleep-stage architecture, and metric sync. Includes **real Bluetooth LE pairing** via Web Bluetooth (see §6 note on simulated providers). |
+| **Digital Wellbeing** | Screen exposure analytics, focus tracking, and wind-down curfews. On Android, backed by real `UsageStatsManager` data. |
+| **Goals & Habits** | Interactive checklists with computed progress. |
+| **Safety Center** | India-focused 24/7 crisis helplines, emergency contacts, and an SOS action that records a safety event. |
+| **Privacy Center** | JSON data export, six granular consent toggles, and permanent (hard-delete) account erasure. |
 
 ---
 
 ## 4. System Architecture
 
-GUIDE ME is architected as a **modular monolith** with clean service and repository boundaries designed for seamless future microservice extraction:
+A **modular monolith** with clean service and repository boundaries:
 
 ```
 GUIDE ME - FINAL/
-├── frontend/                  # React 18 + TypeScript + Vite + Tailwind CSS + Recharts
+├── frontend/                  # React 19 + TypeScript + Vite + Tailwind + Recharts
+│   ├── src/
+│   │   ├── pages/             # 14 feature pages
+│   │   ├── components/        # Shared UI (rings, toasts, theme toggle, markdown)
+│   │   ├── contexts/          # Consent context
+│   │   └── services/          # API client + Capacitor/Web-Bluetooth native bridge
+│   └── android/               # Capacitor Android project (APK build)
 ├── backend/                   # Python 3.13 + FastAPI + SQLAlchemy 2.0 + Pydantic v2
 │   ├── app/
-│   │   ├── api/v1/            # Versioned domain routers (/auth, /profile, /assessments, etc.)
-│   │   ├── core/              # Security, JWT tokens, dual-database manager, config
-│   │   ├── models/            # 22+ SQLAlchemy ORM entities
+│   │   ├── api/v1/            # 13 routers, 53 endpoints
+│   │   ├── core/              # Security, JWT, dual-database manager, config
+│   │   ├── models/            # 28 SQLAlchemy ORM entities
 │   │   ├── schemas/           # Pydantic validation schemas
-│   │   ├── repositories/      # Strict IDOR-guarded database queries
+│   │   ├── repositories/      # User-scoped, IDOR-guarded queries
 │   │   ├── services/          # Business logic layer
-│   │   ├── ml/                # Embedded psychometric, NLP, stress & facial engines
-│   │   ├── ai/                # AI Companion provider abstraction & safety layer
-│   │   └── integrations/      # Wearable provider abstraction (Mock, Apple, Fitbit, Google)
-│   └── tests/                 # Automated pytest test suite (Auth, IDOR, ML, Safety)
-├── ml/                        # Standalone ML training & normalization pipelines
-├── scripts/                   # Git Bash automation scripts (setup, start, test, seed)
-├── infrastructure/            # Dockerfiles, Nginx config, docker-compose.yml
-├── docs/                      # Extensive architecture, API, security, and research documentation
-├── requirements.txt           # Verified root Python dependencies (NO virtualenv)
+│   │   ├── ml/                # Psychometric, NLP, stress & facial engines
+│   │   ├── ai/                # LLM provider abstraction & safety layer
+│   │   └── integrations/      # Wearable provider abstraction
+│   ├── migrations/            # Alembic scaffold (currently unused — see note below)
+│   └── tests/                 # pytest suite (14 tests)
+├── ml/                        # Standalone experiment scripts (not imported by the app)
+├── scripts/                   # Git Bash automation (setup, start, test, seed)
+├── infrastructure/            # Dockerfiles + Nginx config
+├── docs/                      # Architecture, API, security, research notes
+├── build-apk.sh / .ps1        # Android APK build helpers
+├── requirements.txt           # Root Python dependencies (NO virtualenv)
 └── .env.example               # Configuration template
 ```
+
+> [!NOTE]
+> **Schema creation** uses `Base.metadata.create_all` plus targeted `ALTER TABLE` statements in
+> `app/core/database.py`, not Alembic revisions. `backend/migrations/versions/` is an empty
+> scaffold — Alembic is installed but no migrations have been authored yet.
 
 ---
 
 ## 5. Technology Stack
 
-- **Frontend**: React 18, TypeScript, Vite, Tailwind CSS, React Router v6, Lucide React, Recharts, HTML5 MediaStream & Canvas APIs.
-- **Backend**: Python 3.13, FastAPI, Pydantic v2, SQLAlchemy 2.0, Alembic, Native Bcrypt, Python-Jose (JWT), Structlog.
-- **Database**: PostgreSQL (Production) with automatic SQLite local fallback for zero-friction evaluation.
-- **Data Science & ML**: NumPy, Pandas, Scikit-Learn, SciPy, Pillow, OpenCV Headless.
-- **DevOps**: Docker, Docker Compose, Nginx Alpine, GitHub Actions CI/CD.
+**Frontend** — React **19.2**, TypeScript 6.0, Vite 8.2, Tailwind CSS 3.4, React Router **7.18**,
+Lucide React, Recharts 3.10, Capacitor 8.5 (Android), HTML5 MediaStream / Canvas / Web Bluetooth.
+
+**Backend** — Python 3.13, FastAPI, Pydantic v2, SQLAlchemy 2.0, native `bcrypt`, Python-Jose (JWT).
+
+**Database** — PostgreSQL in production, with automatic SQLite fallback (`guideme_local.db`) when
+PostgreSQL is unreachable, so the project runs with zero setup.
+
+**ML / numerics** — NumPy, Pillow, OpenCV (headless).
+
+> [!NOTE]
+> `requirements.txt` also pins pandas, scikit-learn and SciPy. These are **not currently imported**
+> by the backend — the ML engines are deterministic (NumPy, regex, and lexicon based). They are
+> retained for the standalone scripts under `ml/` and for future model work.
+
+**DevOps** — Docker, Docker Compose, Nginx Alpine, GitHub Actions (**CI only** — the workflow runs
+tests and builds; it does not deploy).
 
 ---
 
-## 6. Prerequisites & Environment
+## 6. Prerequisites
 
-- **Operating System**: Windows 10/11 with **Git Bash**.
-- **Python**: Python 3.10+ (tested on Python 3.13.15).
-- **Node.js**: Node.js v18+ and npm (tested on Node v24.20.0).
-- **PostgreSQL (Optional)**: If PostgreSQL is not installed or offline, the system automatically initializes a local SQLite database (`guideme_local.db`).
+- **OS**: Windows 10/11 with **Git Bash** (all scripts are bash).
+- **Python**: 3.10+ (developed and tested on 3.13.15).
+- **Node.js**: v18+ and npm (tested on Node v24.20.0).
+- **PostgreSQL**: optional. If unavailable, SQLite is used automatically.
+- **Browser for BLE**: Chrome, Edge, or Chrome on Android. Web Bluetooth is not implemented by
+  Safari or Firefox.
 
 ---
 
 ## 7. Mandatory Environment Rule: NO Virtual Environment
 
 > [!IMPORTANT]
-> **No Virtual Environment Required or Allowed**:
-> As mandated by project requirements, **do NOT create a `venv/`, `.venv/`, or `env/` virtual environment**.
-> Dependencies install directly against your existing host Python installation.
+> **Do NOT create a `venv/`, `.venv/`, or `env/`.** Dependencies install directly against your host
+> Python installation, as mandated by project requirements.
 
-Install dependencies directly with:
 ```bash
 pip install -r requirements.txt
 ```
 
+> A second `backend/requirements.txt` exists for the Docker build context. The **root**
+> `requirements.txt` is authoritative for local development.
+
 ---
 
-## 8. Quick Start Guide (Windows + Git Bash)
+## 8. Quick Start (Windows + Git Bash)
 
-Open **Git Bash** in the project directory:
+Open **Git Bash** in the repository root:
 
 ```bash
-
-```
 cd "GUIDE ME - FINAL"
-### Step 1: Install Dependencies & Seed Database
+```
+
+### Step 1 — Install dependencies and seed the database
+
 ```bash
-# Run the automated Git Bash setup script:
 ./scripts/setup.sh
-$ git init
-git add .
-git commit -m "Initial commit"
-git branch -M main
-git remote add origin https://github.com/Vxnavi71/GUIDE-ME---FINAL.git
-git push -u origin main
 ```
-*This command verifies Python & Node, installs `requirements.txt`, installs frontend packages, and seeds the database with the Jordan Chen demo archetype.*
 
-### Step 2: Start All Application Services
+This verifies Python and Node are present, installs `requirements.txt`, installs frontend packages,
+and seeds the database with the Jordan Chen demo archetype.
+
+### Step 2 — Start all services
+
 ```bash
-
-
+./scripts/start_all.sh
 ```
-*This starts both the FastAPI backend and the Vite frontend concurrently in Git Bash.*
 
-Alternatively, start services individually in separate Git Bash tabs:
+This starts the FastAPI backend and the Vite frontend concurrently. Press `Ctrl+C` to shut both
+down cleanly.
+
+Alternatively, run them in separate Git Bash tabs:
+
 ```bash
 # Terminal 1: Backend
 ./scripts/start_backend.sh
@@ -143,115 +181,224 @@ Alternatively, start services individually in separate Git Bash tabs:
 ./scripts/start_frontend.sh
 ```
 
-### Step 3: Access the Application
-- **Web Application**: `http://127.0.0.1:5173`
-- **FastAPI Interactive Docs**: `http://127.0.0.1:8000/docs`
-- **ReDoc API Documentation**: `http://127.0.0.1:8000/redoc`
-- **Health Probe**: `http://127.0.0.1:8000/health`
+### Step 3 — Open the application
+
+| Surface | URL |
+|---|---|
+| Web application | `http://127.0.0.1:5173` |
+| FastAPI interactive docs | `http://127.0.0.1:8000/docs` |
+| ReDoc API documentation | `http://127.0.0.1:8000/redoc` |
+| Health probe | `http://127.0.0.1:8000/health` |
 
 ---
 
-## 9. Demo Account Credentials
+## 9. Demo Account
 
-You can instantly log in or click **"Load Demo Account (Jordan Chen)"** on the login page:
+Log in directly, or click **"Load Demo Account (Jordan Chen)"** on the login page:
 
 | Field | Value |
 |---|---|
 | **Email** | `demo@guideme.com` |
 | **Password** | `DemoUser123!` |
-| **User Profile** | Jordan Chen (Systems Engineer & Design Thinker) |
-| **Pre-Seeded Data** | OCEAN Big Five profile, 7 days of mood & stress observations, sample journals with NLP analyses, goals, and emergency contacts. |
+| **Profile** | Jordan Chen (Systems Engineer & Design Thinker) |
+| **Pre-seeded** | OCEAN profile, 8 days of mood & stress observations, a journal entry with NLP analysis, a goal with milestones, habits, and an emergency contact. |
 
 ---
 
 ## 10. Camera Permission Flow & Facial Analysis
 
-### How It Works
-1. Navigate to **Facial Signals** in the sidebar.
-2. Click **Enable Camera**. The browser displays a permission prompt via `navigator.mediaDevices.getUserMedia({ video: true })`.
-3. The video viewfinder renders a live preview.
-4. Frames are captured via HTML5 Canvas in RAM and submitted as Base64 payloads to `/api/v1/facial-analysis/process-frame`.
-5. The backend analyzes facial landmark contrast proxies (smile ratio, brow furrow index, eye aperture, head stability) using OpenCV/Pillow.
+1. Open **Facial Signals** in the sidebar.
+2. Click **Enable Camera**. The browser shows a permission prompt via
+   `navigator.mediaDevices.getUserMedia({ video: true })`.
+3. A live viewfinder renders.
+4. Frames are captured to an HTML5 Canvas in memory and POSTed as Base64 to
+   `/api/v1/facial-analysis/process-frame`.
+5. The backend detects a face (OpenCV Haar cascade) and derives four proxies:
+   `smile_ratio`, `brow_furrow_index`, `eye_aperture`, `head_pose_stability`.
 
-### Privacy & Biometric Guarantees
-- **No Video Recording**: No video feeds or frames are ever written to disk or database tables.
-- **Ephemeral RAM Processing**: The frame payload is discarded immediately after landmark metrics are extracted.
-- **Revoking Permission**: Click **Stop Camera** anytime, or revoke camera permission in your browser address bar.
-- **Probabilistic Wording**: The platform states: *"Facial expression signals are superficial muscular proxies and do not prove internal emotional states or clinical conditions."*
+**Continuous analysis.** With *Auto-sample* enabled, a frame is analysed every 3 seconds. Requests
+are single-flight — a new frame is skipped while one is still in flight — and sampling pauses
+automatically after repeated errors.
+
+**Foreground only.** The camera stops when the tab is hidden and resumes on return. Browsers and
+mobile operating systems suspend camera access for backgrounded pages, so true background capture
+is *not technically possible* and is not attempted.
+
+### Privacy guarantees
+- **No recording** — no frame is written to disk or any database table.
+- **Ephemeral** — the payload is discarded once metrics are extracted.
+- **Revocable** — click **Stop Camera**, or revoke permission in the address bar. Disabling camera
+  consent in the Privacy Center stops the stream immediately.
+- **Probabilistic wording** — the app states plainly that facial signals are superficial muscular
+  proxies and do not prove internal emotional states.
 
 ---
 
 ## 11. Multimodal Stress & Personal Baseline Engine
 
-Instead of comparing the user against generic population distributions, GUIDE ME computes personal rolling averages ($z$-scores):
+The composite stress score (0–100) is a weighted blend of five signals:
 
-$$z = \frac{X - \mu_{14}}{\sigma_{14}}$$
+| Signal | Weight |
+|---|---|
+| Self-reported mood | 0.35 |
+| Heart rate variability (HRV) | 0.25 |
+| Sleep deficit | 0.15 |
+| Screen exposure | 0.15 |
+| Journal text sentiment | 0.10 |
 
-Where:
-- $X$ is the composite multimodal stress score (combining self-reported mood, HRV, sleep deficit, screen time, and text sentiment).
-- $\mu_{14}$ and $\sigma_{14}$ are the user's personal 14-day rolling mean and standard deviation.
+Weights are renormalised over whichever signals are available, so a partial day still scores. With
+no signals at all, the API returns an explicit `insufficient_data` state rather than a fabricated
+number.
 
-Risk bands are calibrated:
-- **Low**: 0 – 29
-- **Moderate**: 30 – 59
-- **Elevated**: 60 – 79
-- **Critical**: 80 – 100
+Personal baseline deviation is a standard $z$-score:
+
+$$z = \frac{X - \mu}{\sigma}$$
+
+where $\mu$ and $\sigma$ are computed over the **14 most recent stress observations**
+(`limit=14`, ordered by recency — this is a rolling *record* window, not a strict 14-day window).
+Zero variance and cold-start cases are guarded.
+
+**Risk bands:** Low `0–29` · Moderate `30–59` · Elevated `60–79` · Critical `80–100`.
 
 ---
 
 ## 12. AI Companion & Memory Transparency
 
-1. **Context Fusion**: The companion synthesizes user profile data, Big Five traits, today's mood, active goals, and user-consented memories into a personalized prompt.
-2. **Provider Abstraction**: Operates offline out-of-the-box via `MockLLMProvider` (clinical heuristic agent). If `OPENAI_API_KEY` is provided in `.env`, it seamlessly delegates to OpenAI GPT-4o models.
-3. **Memory Inspector**: Switch to the **Memories** tab to inspect every fact or preference the AI has remembered, along with confidence scores. Users can permanently delete individual memories anytime.
-4. **Clinical Safety Guardrail**: If acute crisis keywords (e.g. self-harm or suicidal ideation) are detected, the system immediately suspends normal dialogue and provides 24/7 crisis lifelines (988 Lifeline, Crisis Text Line 741741, and international helpline directories).
+1. **Context fusion** — the companion assembles your profile, Big Five traits, today's mood, active
+   goals, and consented memories into a system prompt.
+2. **Provider selection** (`app/ai/providers.py`):
+
+   | `AI_PROVIDER` | Requires | Result |
+   |---|---|---|
+   | `gemini` *(default)* | `GEMINI_API_KEY` | Google Gemini (`gemini-1.5-flash` by default) |
+   | `openai` | `OPENAI_API_KEY` | OpenAI (`AI_MODEL_NAME`, default `gpt-4o-mini`) |
+   | *unset key* | — | `MockLLMProvider`, a fully offline heuristic agent |
+
+   > [!IMPORTANT]
+   > Gemini is checked **first**. To use OpenAI you must set `AI_PROVIDER=openai` *and*
+   > `OPENAI_API_KEY` — supplying the OpenAI key alone is not enough.
+   >
+   > **With no API key configured, the app still runs**, but companion replies and journal
+   > reflections come from deterministic offline logic rather than a language model.
+
+3. **Memory inspector** — the **Memories** tab lists every remembered fact with a confidence score;
+   any memory can be permanently deleted.
+4. **Crisis guardrail** — when acute crisis language is detected, normal dialogue is suspended and
+   crisis resources are returned immediately (see §16).
 
 ---
 
 ## 13. Running Automated Tests
 
-Run the full automated test suite using Git Bash:
-
 ```bash
 ./scripts/test.sh
 ```
 
-This script executes:
-1. **Backend Tests (`pytest`)**: Verifies health endpoints, password hashing, Big Five OCEAN scoring, NLP sentiment and distortion detection, stress calculation, safety guardrails, and IDOR resource protection.
-2. **Frontend Build (`tsc -b && vite build`)**: Verifies TypeScript compilation and creates the production distribution.
+This runs the **full** backend pytest suite (14 tests) and then the frontend type-check and
+production build (`tsc -b && vite build`).
+
+Backend coverage includes health endpoints, password hashing, OCEAN scoring, NLP sentiment and
+distortion detection, stress calculation, safety guardrails, IDOR resource protection, and the AI
+companion (multi-session, memory CRUD, streaming, and the crisis guardrail).
+
+To run just the backend suite:
+
+```bash
+cd backend && PYTHONPATH=. python -m pytest -v
+```
 
 ---
 
 ## 14. Docker Deployment (Optional)
 
-GUIDE ME can also be run inside isolated Docker containers:
-
 ```bash
-# Build and start PostgreSQL, Backend, and Frontend containers:
 docker-compose up --build
 ```
-- Frontend: `http://localhost`
-- Backend API: `http://localhost:8000`
-- PostgreSQL: `localhost:5432`
+
+| Service | Port |
+|---|---|
+| Frontend (Nginx Alpine) | `http://localhost` (80) |
+| Backend API | `http://localhost:8000` |
+| PostgreSQL 16 | `localhost:5432` |
 
 ---
 
 ## 15. Security & IDOR Defense
 
-- **Strict User Scoping**: Repositories filter every query by `user_id == current_user.id`. Users cannot view or modify each other's journal entries, memories, or wellness logs.
-- **Zero Hash Leakage**: Password hashes are stripped from all API responses via Pydantic model configurations.
-- **Audit Trails**: All authentication events, consent adjustments, and safety triggers are immutably logged in the `audit_logs` table.
+- **Strict user scoping** — repositories filter by `user_id`. A cross-user request for another
+  user's journal returns `404` on both read and delete; this is covered by an automated test.
+- **No hash leakage** — password hashes are excluded from all API response schemas.
+- **Audit trail** — authentication events, consent changes, and safety triggers are written to the
+  `audit_logs` table. Note this is a standard table; there is no cryptographic append-only
+  enforcement.
+- **Account erasure** — `DELETE /api/v1/profile/delete-account` performs a hard delete; the user
+  row is removed and the credentials stop authenticating.
+
+**Data export scope.** `GET /api/v1/profile/export-data` currently returns your profile, journals,
+mood logs, and goals. It does **not** yet include personality results, AI memories, stress
+observations, habits, or wellness metrics. Broadening this is tracked as future work.
 
 ---
 
-## 16. Research & Clinical Disclaimers
+## 16. Crisis Resources
+
+The in-app crisis guardrail and Safety Center currently surface **India-based 24/7 services**:
+
+| Service | Contact |
+|---|---|
+| Tele-MANAS (Govt. of India) | **14416** or 1800-891-4416 |
+| KIRAN Mental Health Helpline | **1800-599-0019** |
+| Vandrevala Foundation | **+91 9999 666 555** |
+| AASRA | **+91 98204 66726** |
+| National Emergency Services | **112** |
 
 > [!NOTE]
-> **Responsible AI Notice**:
-> GUIDE ME is designed for educational self-awareness, lifestyle balance, and preventative mindfulness. It is **not a diagnostic medical device** and does not provide psychiatric diagnoses or medical treatments. If you are experiencing a mental health emergency, please contact 988 (US/Canada), 116 123 (UK), 112 (EU), or visit [findahelpline.com](https://findahelpline.com).
+> **Regional scope.** Crisis resources are India-localised in this build. If you deploy GUIDE ME
+> for another region, update `app/ai/safety_guardrails.py`, `app/api/v1/safety.py`,
+> `app/ai/providers.py`, `app/ai/context_builder.py`, and the frontend `SafetyCenterPage` /
+> `StressDistressPage` so the documentation and the app agree. International directories such as
+> [findahelpline.com](https://findahelpline.com) list equivalents by country.
+
+> [!NOTE]
+> **Responsible AI.** GUIDE ME is designed for educational self-awareness and preventative
+> mindfulness. It is **not a diagnostic medical device**. If you are experiencing a mental health
+> emergency, contact the services above or your local emergency number.
 
 ---
 
-## 17. License
+## 17. Android Build (Capacitor)
 
-Distributed under the **MIT License**. See `LICENSE` for details.
+The frontend ships as an Android app via Capacitor, adding Health Connect and UsageStats access.
+
+```bash
+./build-apk.sh          # Git Bash
+./build-apk.ps1         # PowerShell
+```
+
+The Android project lives in `frontend/android/`; configuration is in
+`frontend/capacitor.config.ts`.
+
+---
+
+## 18. Known Limitations
+
+Stated plainly so behaviour is not mistaken for a defect:
+
+- **Wearable providers are simulated.** The Fitbit, Apple HealthKit, and Google Health Connect
+  adapters implement the provider interface but return representative values flagged
+  `is_simulated_demo: true`. There is no OAuth flow or outbound HTTP in `app/integrations/`.
+  **Bluetooth LE is the exception** — it performs a real GATT connection and reads live values.
+- **Google Health Connect** returns real data only in the Android build, on a device with Health
+  Connect installed and permissions granted.
+- **Background camera analysis is not possible** on web or mobile; sampling is foreground-only.
+- **Digital Wellbeing** uses real `UsageStatsManager` data on Android; in the browser the figures
+  are user-entered or seeded.
+- **Without an AI API key**, companion replies and journal reflections are deterministic offline
+  output, not model-generated text.
+- **`ml/`** contains standalone experiment scripts that the running application does not import.
+
+---
+
+## 19. License
+
+Distributed under the **MIT License**. See `LICENSE`.

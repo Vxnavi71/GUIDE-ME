@@ -104,11 +104,11 @@ export const CareerPage: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold text-forest-950 dark:text-sage-100 flex items-center gap-2">
+          <h1 className="text-2xl font-bold tracking-tight text-forest-950 dark:text-sage-50 flex items-center gap-2">
             <Briefcase className="w-5 h-5 text-sage-600 dark:text-sage-400" />
             <span>Career Pathways & Psychometric Strength Mapping</span>
           </h1>
-          <p className="text-xs text-earth-600 dark:text-sage-400 mt-0.5">
+          <p className="text-sm text-earth-600 dark:text-sage-400 mt-1 leading-relaxed">
             Dynamic career trajectories fused from your Big Five OCEAN psychometrics, education, skill sets, and professional ambitions.
           </p>
         </div>
@@ -127,9 +127,9 @@ export const CareerPage: React.FC = () => {
       {showPreferences && (
         <form
           onSubmit={handleApplyPreferences}
-          className="bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 rounded-2xl p-6 shadow-sm space-y-4 animate-in fade-in"
+          className="bg-white dark:bg-forest-900 border border-earth-200/80 dark:border-forest-800 rounded-2xl p-6 shadow-soft space-y-4 animate-in fade-in"
         >
-          <div className="border-b border-earth-200 dark:border-forest-800 pb-3">
+          <div className="border-b border-earth-200/80 dark:border-forest-800 pb-3">
             <h2 className="text-sm font-bold text-forest-950 dark:text-sage-100 flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-sage-600 dark:text-sage-400" />
               <span>Personalize Your Pathway Synthesis</span>
@@ -213,7 +213,7 @@ export const CareerPage: React.FC = () => {
             <button
               type="submit"
               disabled={refining}
-              className="px-5 py-2 text-xs font-semibold rounded-xl bg-sage-600 hover:bg-sage-700 text-white shadow-sm transition-colors flex items-center gap-1.5 disabled:opacity-50"
+              className="px-5 py-2 text-xs font-semibold rounded-xl bg-sage-600 hover:bg-sage-700 text-white shadow-soft transition-colors flex items-center gap-1.5 disabled:opacity-50"
             >
               <Sparkles className="w-3.5 h-3.5" />
               <span>{refining ? 'Recalculating Pathways...' : 'Recalculate Career Fit'}</span>
@@ -224,7 +224,7 @@ export const CareerPage: React.FC = () => {
 
       {/* Recommendations Feed */}
       {recommendations.length === 0 ? (
-        <div className="bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 rounded-2xl p-8 text-center shadow-sm">
+        <div className="bg-white dark:bg-forest-900 border border-earth-200/80 dark:border-forest-800 rounded-2xl p-8 text-center shadow-soft">
           <Compass className="w-12 h-12 text-sage-600 mx-auto mb-3" />
           <h3 className="text-base font-semibold text-forest-950 dark:text-sage-100">
             No Career Mapping Profile Yet
@@ -234,7 +234,7 @@ export const CareerPage: React.FC = () => {
           </p>
           <Link
             to="/dashboard/personality"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-sage-600 hover:bg-sage-700 text-white font-medium text-sm transition-colors shadow-sm"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-sage-600 hover:bg-sage-700 text-white font-medium text-sm transition-colors shadow-soft"
           >
             <span>Take Big Five Assessment</span>
             <ArrowRight className="w-4 h-4" />
@@ -252,7 +252,7 @@ export const CareerPage: React.FC = () => {
             return (
               <div
                 key={idx}
-                className="bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 rounded-2xl p-6 shadow-sm space-y-5"
+                className="bg-white dark:bg-forest-900 border border-earth-200/80 dark:border-forest-800 rounded-2xl p-6 shadow-soft space-y-5"
               >
                 {/* Pathway Header & Match Percentage */}
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 border-b border-earth-100 dark:border-forest-800 pb-4">

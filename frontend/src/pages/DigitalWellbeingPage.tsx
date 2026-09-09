@@ -178,11 +178,11 @@ export const DigitalWellbeingPage: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold text-forest-950 dark:text-sage-100 flex items-center gap-2">
+          <h1 className="text-2xl font-bold tracking-tight text-forest-950 dark:text-sage-50 flex items-center gap-2">
             <Smartphone className="w-5 h-5 text-sage-600 dark:text-sage-400" />
             <span>Digital Wellbeing & Focus Boundaries</span>
           </h1>
-          <p className="text-xs text-earth-600 dark:text-sage-400 mt-0.5">
+          <p className="text-sm text-earth-600 dark:text-sage-400 mt-1 leading-relaxed">
             Conscious screen time tracking, notification exposure monitoring, and intentional digital boundaries without synthetic approximations.
           </p>
         </div>
@@ -204,7 +204,7 @@ export const DigitalWellbeingPage: React.FC = () => {
             <button
               onClick={hasUsagePermission ? syncFromAndroid : handleRequestAndroidPermission}
               disabled={syncingAndroid}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-forest-900 dark:bg-forest-800 text-white text-xs font-semibold hover:bg-forest-800 dark:hover:bg-forest-700 transition-colors shadow-sm disabled:opacity-50"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-forest-900 dark:bg-forest-800 text-white text-xs font-semibold hover:bg-forest-800 dark:hover:bg-forest-700 transition-colors shadow-soft disabled:opacity-50"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${syncingAndroid ? 'animate-spin' : ''}`} />
               <span>{hasUsagePermission ? (syncingAndroid ? 'Syncing...' : 'Sync Android Usage') : 'Grant Usage Access'}</span>
@@ -213,7 +213,7 @@ export const DigitalWellbeingPage: React.FC = () => {
 
           <button
             onClick={() => setShowLogModal(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-sage-600 hover:bg-sage-700 text-white text-xs font-semibold transition-colors shadow-sm"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-sage-600 hover:bg-sage-700 text-white text-xs font-semibold transition-colors shadow-soft"
           >
             <PlusCircle className="w-3.5 h-3.5" />
             <span>Log Screen Time</span>
@@ -231,7 +231,7 @@ export const DigitalWellbeingPage: React.FC = () => {
 
       {/* Android Permission Guidance Banner */}
       {isAndroid && !hasUsagePermission && (
-        <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 text-amber-900 dark:text-amber-200 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+        <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 text-amber-900 dark:text-amber-200 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-soft">
           <div className="flex items-start gap-2.5">
             <ShieldCheck className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
             <div>
@@ -268,7 +268,7 @@ export const DigitalWellbeingPage: React.FC = () => {
 
       {/* Screen Time Limit Modal / Drawer */}
       {showSettings && (
-        <div className="p-4 rounded-2xl bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4 animate-in fade-in">
+        <div className="p-4 rounded-2xl bg-white dark:bg-forest-900 border border-earth-200/80 dark:border-forest-800 shadow-soft flex flex-col sm:flex-row items-center justify-between gap-4 animate-in fade-in">
           <div>
             <h3 className="text-xs font-bold text-forest-950 dark:text-sage-100">Adjust Daily Screen Time Limit</h3>
             <p className="text-[11px] text-earth-600 dark:text-sage-400 mt-0.5">
@@ -307,8 +307,8 @@ export const DigitalWellbeingPage: React.FC = () => {
       {/* Manual Screen Time Log Modal */}
       {showLogModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 rounded-2xl max-w-lg w-full p-6 shadow-xl space-y-4">
-            <div className="flex items-center justify-between border-b border-earth-200 dark:border-forest-800 pb-3">
+          <div className="bg-white dark:bg-forest-900 border border-earth-200/80 dark:border-forest-800 rounded-2xl max-w-lg w-full p-6 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b border-earth-200/80 dark:border-forest-800 pb-3">
               <h2 className="text-base font-semibold text-forest-950 dark:text-sage-100 flex items-center gap-2">
                 <Smartphone className="w-5 h-5 text-sage-600 dark:text-sage-400" />
                 <span>Log Daily Digital Wellbeing</span>
@@ -443,7 +443,7 @@ export const DigitalWellbeingPage: React.FC = () => {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="px-4 py-1.5 rounded-lg bg-sage-600 hover:bg-sage-700 text-white text-xs font-semibold shadow-sm transition-colors"
+                  className="px-4 py-1.5 rounded-lg bg-sage-600 hover:bg-sage-700 text-white text-xs font-semibold shadow-soft transition-colors"
                 >
                   Save Wellbeing Record
                 </button>
@@ -456,7 +456,7 @@ export const DigitalWellbeingPage: React.FC = () => {
       {/* Main Focus & Ring Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Circular Progress Ring Card */}
-        <div className="bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 rounded-2xl p-6 shadow-sm flex flex-col items-center justify-center text-center">
+        <div className="bg-white dark:bg-forest-900 border border-earth-200/80 dark:border-forest-800 rounded-2xl p-6 shadow-soft flex flex-col items-center justify-center text-center">
           <h2 className="text-xs font-bold text-earth-500 dark:text-sage-400 uppercase tracking-wider mb-4">
             Daily Screen Time Budget
           </h2>
@@ -493,7 +493,7 @@ export const DigitalWellbeingPage: React.FC = () => {
         </div>
 
         {/* Category Breakdown */}
-        <div className="bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 rounded-2xl p-6 shadow-sm flex flex-col justify-between">
+        <div className="bg-white dark:bg-forest-900 border border-earth-200/80 dark:border-forest-800 rounded-2xl p-6 shadow-soft flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xs font-bold text-earth-500 dark:text-sage-400 uppercase tracking-wider">
@@ -572,7 +572,7 @@ export const DigitalWellbeingPage: React.FC = () => {
         </div>
 
         {/* Weekly 7-Day Trend Bars */}
-        <div className="bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 rounded-2xl p-6 shadow-sm flex flex-col justify-between">
+        <div className="bg-white dark:bg-forest-900 border border-earth-200/80 dark:border-forest-800 rounded-2xl p-6 shadow-soft flex flex-col justify-between">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xs font-bold text-earth-500 dark:text-sage-400 uppercase tracking-wider">
               7-Day Screen Time Trend
@@ -629,7 +629,7 @@ export const DigitalWellbeingPage: React.FC = () => {
 
       {/* 4 Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-5 rounded-2xl bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 shadow-sm">
+        <div className="p-5 rounded-2xl bg-white dark:bg-forest-900 border border-earth-200/80 dark:border-forest-800 shadow-soft">
           <div className="flex items-center justify-between text-earth-500 dark:text-sage-400 mb-2">
             <span className="text-xs font-medium uppercase tracking-wider">Total Screen Time</span>
             <Clock className="w-4 h-4 text-sage-600" />
@@ -642,7 +642,7 @@ export const DigitalWellbeingPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="p-5 rounded-2xl bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 shadow-sm">
+        <div className="p-5 rounded-2xl bg-white dark:bg-forest-900 border border-earth-200/80 dark:border-forest-800 shadow-soft">
           <div className="flex items-center justify-between text-earth-500 dark:text-sage-400 mb-2">
             <span className="text-xs font-medium uppercase tracking-wider">Deep Focus Time</span>
             <Eye className="w-4 h-4 text-emerald-600" />
@@ -655,7 +655,7 @@ export const DigitalWellbeingPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="p-5 rounded-2xl bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 shadow-sm">
+        <div className="p-5 rounded-2xl bg-white dark:bg-forest-900 border border-earth-200/80 dark:border-forest-800 shadow-soft">
           <div className="flex items-center justify-between text-earth-500 dark:text-sage-400 mb-2">
             <span className="text-xs font-medium uppercase tracking-wider">Notification Exposure</span>
             <Bell className="w-4 h-4 text-amber-500" />
@@ -672,7 +672,7 @@ export const DigitalWellbeingPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="p-5 rounded-2xl bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 shadow-sm">
+        <div className="p-5 rounded-2xl bg-white dark:bg-forest-900 border border-earth-200/80 dark:border-forest-800 shadow-soft">
           <div className="flex items-center justify-between text-earth-500 dark:text-sage-400 mb-2">
             <span className="text-xs font-medium uppercase tracking-wider">Late-Night Exposure</span>
             <Moon className="w-4 h-4 text-indigo-500" />
@@ -691,24 +691,24 @@ export const DigitalWellbeingPage: React.FC = () => {
       </div>
 
       {/* Sustainable Digital Hygiene Tips */}
-      <div className="bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 rounded-2xl p-6 shadow-sm">
+      <div className="bg-white dark:bg-forest-900 border border-earth-200/80 dark:border-forest-800 rounded-2xl p-6 shadow-soft">
         <h2 className="text-sm font-semibold text-forest-950 dark:text-sage-100 mb-2">
           Evidence-Based Digital Guidelines
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs text-earth-600 dark:text-sage-300">
-          <div className="p-4 rounded-xl border border-earth-200 dark:border-forest-800 bg-earth-50/50 dark:bg-forest-800/40">
+          <div className="p-4 rounded-xl border border-earth-200/80 dark:border-forest-800 bg-earth-50/50 dark:bg-forest-800/40">
             <strong className="block font-semibold text-forest-900 dark:text-sage-100 mb-1">
               The 20-20-20 Rule
             </strong>
             Every 20 minutes of continuous screen gazing, look at an object 20 feet away for at least 20 seconds to relax ciliary eye muscles.
           </div>
-          <div className="p-4 rounded-xl border border-earth-200 dark:border-forest-800 bg-earth-50/50 dark:bg-forest-800/40">
+          <div className="p-4 rounded-xl border border-earth-200/80 dark:border-forest-800 bg-earth-50/50 dark:bg-forest-800/40">
             <strong className="block font-semibold text-forest-900 dark:text-sage-100 mb-1">
               Evening Blue-Light Curfew
             </strong>
             Transition to warm lighting and dim displays 45 minutes prior to sleep to safeguard natural melatonin onset.
           </div>
-          <div className="p-4 rounded-xl border border-earth-200 dark:border-forest-800 bg-earth-50/50 dark:bg-forest-800/40">
+          <div className="p-4 rounded-xl border border-earth-200/80 dark:border-forest-800 bg-earth-50/50 dark:bg-forest-800/40">
             <strong className="block font-semibold text-forest-900 dark:text-sage-100 mb-1">
               Notification Batching
             </strong>

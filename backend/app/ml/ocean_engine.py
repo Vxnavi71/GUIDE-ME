@@ -78,6 +78,20 @@ class OceanBigFiveEngine:
     ]
 
     @classmethod
+    def build_fallback_questions_map(cls) -> Dict[str, Dict[str, Any]]:
+        """
+        Mirrors the synthetic ids issued by GET /assessments/ocean/questions when no seeded
+        assessment row exists, so scoring stays correct on an unseeded database.
+        """
+        return {
+            f"q-{i + 1}": {
+                "domain_trait": q["trait"],
+                "reverse_scored": q["reverse"],
+            }
+            for i, q in enumerate(cls.QUESTIONS_DATA)
+        }
+
+    @classmethod
     def calculate_scores(
         cls,
         answers: List[Dict[str, Any]],
@@ -90,10 +104,25 @@ class OceanBigFiveEngine:
         raw_sums = {t: 0 for t in cls.TRAITS}
         counts = {t: 0 for t in cls.TRAITS}
 
-        for item in answers:
+        # The questions endpoint falls back to the in-memory bank ("q-1".."q-50") whenever the
+        # database has no seeded assessment. Without a matching fallback here every answer was
+        # silently dropped and each trait defaulted to 50.0, so the inventory returned a flat
+        # profile no matter what the user answered.
+        fallback_map = cls.build_fallback_questions_map()
+
+        for index, item in enumerate(answers):
             qid = item["question_id"]
             val = int(item["score_value"])
-            q_info = questions_map.get(qid)
+            q_info = questions_map.get(qid) or fallback_map.get(qid)
+
+            # Last resort: fall back to the item's position in the canonical 50-item bank.
+            if not q_info and index < len(cls.QUESTIONS_DATA):
+                canonical = cls.QUESTIONS_DATA[index]
+                q_info = {
+                    "domain_trait": canonical["trait"],
+                    "reverse_scored": canonical["reverse"],
+                }
+
             if not q_info:
                 continue
 

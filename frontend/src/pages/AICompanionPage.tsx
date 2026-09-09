@@ -548,15 +548,15 @@ export const AICompanionPage: React.FC = () => {
   const userName = userProfile?.profile?.preferred_name || userProfile?.full_name?.split(' ')[0] || 'Friend';
 
   return (
-    <div className="bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 rounded-2xl shadow-sm overflow-hidden flex h-[calc(100vh-7.5rem)] relative">
+    <div className="bg-white dark:bg-forest-900 border border-earth-200/80 dark:border-forest-800 rounded-2xl shadow-soft overflow-hidden flex h-[calc(100vh-7.5rem)] relative">
       {/* 1. Left Sidebar: Conversations Session List */}
       <div
-        className={`fixed inset-y-0 left-0 z-30 w-72 bg-earth-50 dark:bg-forest-950 border-r border-earth-200 dark:border-forest-800 flex flex-col transition-transform duration-200 md:relative md:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-30 w-72 bg-earth-50 dark:bg-forest-950 border-r border-earth-200/80 dark:border-forest-800 flex flex-col transition-transform duration-200 md:relative md:translate-x-0 ${
           sidebarOpen ? 'translate-x-0 shadow-xl' : '-translate-x-full md:translate-x-0'
         }`}
       >
         {/* Sidebar Header */}
-        <div className="p-4 border-b border-earth-200 dark:border-forest-800 flex items-center justify-between">
+        <div className="p-4 border-b border-earth-200/80 dark:border-forest-800 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <MessageSquareHeart className="w-5 h-5 text-sage-600 dark:text-sage-400" />
             <h2 className="text-sm font-bold text-forest-950 dark:text-sage-100">AI Companion</h2>
@@ -573,7 +573,7 @@ export const AICompanionPage: React.FC = () => {
         <div className="p-3">
           <button
             onClick={handleCreateNewConversation}
-            className="w-full py-2.5 px-3 rounded-xl bg-sage-600 hover:bg-sage-700 text-white text-xs font-semibold flex items-center justify-center gap-2 shadow-sm transition-all"
+            className="w-full py-2.5 px-3 rounded-xl bg-sage-600 hover:bg-sage-700 text-white text-xs font-semibold flex items-center justify-center gap-2 shadow-soft transition-all"
           >
             <Plus className="w-4 h-4" />
             <span>New Reflection Session</span>
@@ -599,7 +599,7 @@ export const AICompanionPage: React.FC = () => {
                   onClick={() => handleSelectConversation(c.id)}
                   className={`group w-full p-2.5 rounded-xl text-left text-xs transition-all cursor-pointer flex items-center justify-between ${
                     isActive
-                      ? 'bg-sage-100 dark:bg-forest-800 border border-sage-300 dark:border-forest-700 text-forest-950 dark:text-sage-100 font-semibold shadow-xs'
+                      ? 'bg-sage-100 dark:bg-forest-800 border border-sage-300 dark:border-forest-700 text-forest-950 dark:text-sage-100 font-semibold shadow-soft'
                       : 'hover:bg-earth-100 dark:hover:bg-forest-800/60 text-earth-700 dark:text-sage-300 border border-transparent'
                   }`}
                 >
@@ -625,7 +625,7 @@ export const AICompanionPage: React.FC = () => {
         </div>
 
         {/* Gemini Engine Connected Badge */}
-        <div className="p-3 border-t border-earth-200 dark:border-forest-800 bg-earth-100/50 dark:bg-forest-900/50 flex items-center justify-between text-[11px] text-earth-600 dark:text-sage-400">
+        <div className="p-3 border-t border-earth-200/80 dark:border-forest-800 bg-earth-100/50 dark:bg-forest-900/50 flex items-center justify-between text-[11px] text-earth-600 dark:text-sage-400">
           <div className="flex items-center gap-1.5">
             <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             <span className="font-medium">Google Gemini Engine</span>
@@ -645,11 +645,11 @@ export const AICompanionPage: React.FC = () => {
       {/* 2. Main Workstation Area */}
       <div className="flex-1 flex flex-col h-full overflow-hidden">
         {/* Top Header */}
-        <div className="p-3.5 md:px-5 border-b border-earth-200 dark:border-forest-800 flex items-center justify-between bg-earth-50/60 dark:bg-forest-900/60">
+        <div className="p-3.5 md:px-5 border-b border-earth-200/80 dark:border-forest-800 flex items-center justify-between bg-earth-50/60 dark:bg-forest-900/60">
           <div className="flex items-center gap-2.5">
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="md:hidden p-1.5 rounded-lg border border-earth-200 dark:border-forest-800 hover:bg-earth-100 dark:hover:bg-forest-800 text-forest-900 dark:text-sage-200"
+              className="md:hidden p-1.5 rounded-lg border border-earth-200/80 dark:border-forest-800 hover:bg-earth-100 dark:hover:bg-forest-800 text-forest-900 dark:text-sage-200"
               title="Toggle sessions"
             >
               <Menu className="w-4 h-4" />
@@ -679,7 +679,7 @@ export const AICompanionPage: React.FC = () => {
               className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
                 autoSpeak
                   ? 'bg-sage-100 dark:bg-forest-800 border-sage-300 dark:border-forest-700 text-sage-800 dark:text-sage-200'
-                  : 'border-earth-200 dark:border-forest-800 text-earth-500 dark:text-sage-400 hover:bg-earth-100 dark:hover:bg-forest-800'
+                  : 'border-earth-200/80 dark:border-forest-800 text-earth-500 dark:text-sage-400 hover:bg-earth-100 dark:hover:bg-forest-800'
               }`}
               title="Read responses aloud automatically"
             >
@@ -705,7 +705,7 @@ export const AICompanionPage: React.FC = () => {
                 onClick={() => setActiveTab('chat')}
                 className={`px-3 py-1 rounded-md transition-all ${
                   activeTab === 'chat'
-                    ? 'bg-white dark:bg-forest-700 text-forest-950 dark:text-sage-100 shadow-xs'
+                    ? 'bg-white dark:bg-forest-700 text-forest-950 dark:text-sage-100 shadow-soft'
                     : 'text-earth-600 dark:text-sage-400'
                 }`}
               >
@@ -715,7 +715,7 @@ export const AICompanionPage: React.FC = () => {
                 onClick={() => setActiveTab('memories')}
                 className={`px-3 py-1 rounded-md transition-all flex items-center gap-1.5 ${
                   activeTab === 'memories'
-                    ? 'bg-white dark:bg-forest-700 text-forest-950 dark:text-sage-100 shadow-xs'
+                    ? 'bg-white dark:bg-forest-700 text-forest-950 dark:text-sage-100 shadow-soft'
                     : 'text-earth-600 dark:text-sage-400'
                 }`}
               >
@@ -734,7 +734,7 @@ export const AICompanionPage: React.FC = () => {
               {/* Contextual Home State (When empty) */}
               {messages.length === 0 && !streamingText ? (
                 <div className="h-full flex flex-col items-center justify-center text-center p-4 max-w-xl mx-auto">
-                  <div className="w-12 h-12 rounded-2xl bg-sage-100 dark:bg-forest-800 flex items-center justify-center text-sage-600 dark:text-sage-300 mb-3 shadow-sm">
+                  <div className="w-12 h-12 rounded-2xl bg-sage-100 dark:bg-forest-800 flex items-center justify-center text-sage-600 dark:text-sage-300 mb-3 shadow-soft">
                     <Sparkles className="w-6 h-6" />
                   </div>
 
@@ -747,7 +747,7 @@ export const AICompanionPage: React.FC = () => {
 
                   {/* Live Ecosystem Summary Badges */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full mb-6">
-                    <div className="p-2.5 rounded-xl border border-earth-200 dark:border-forest-800 bg-earth-50/60 dark:bg-forest-800/40 text-left">
+                    <div className="p-2.5 rounded-xl border border-earth-200/80 dark:border-forest-800 bg-earth-50/60 dark:bg-forest-800/40 text-left">
                       <div className="flex items-center gap-1.5 text-[10px] font-semibold text-earth-500 dark:text-sage-400 mb-0.5">
                         <Target className="w-3 h-3 text-sage-600" />
                         <span>Goals</span>
@@ -757,7 +757,7 @@ export const AICompanionPage: React.FC = () => {
                       </p>
                     </div>
 
-                    <div className="p-2.5 rounded-xl border border-earth-200 dark:border-forest-800 bg-earth-50/60 dark:bg-forest-800/40 text-left">
+                    <div className="p-2.5 rounded-xl border border-earth-200/80 dark:border-forest-800 bg-earth-50/60 dark:bg-forest-800/40 text-left">
                       <div className="flex items-center gap-1.5 text-[10px] font-semibold text-earth-500 dark:text-sage-400 mb-0.5">
                         <Flame className="w-3 h-3 text-amber-500" />
                         <span>Habits</span>
@@ -767,7 +767,7 @@ export const AICompanionPage: React.FC = () => {
                       </p>
                     </div>
 
-                    <div className="p-2.5 rounded-xl border border-earth-200 dark:border-forest-800 bg-earth-50/60 dark:bg-forest-800/40 text-left">
+                    <div className="p-2.5 rounded-xl border border-earth-200/80 dark:border-forest-800 bg-earth-50/60 dark:bg-forest-800/40 text-left">
                       <div className="flex items-center gap-1.5 text-[10px] font-semibold text-earth-500 dark:text-sage-400 mb-0.5">
                         <Smile className="w-3 h-3 text-emerald-500" />
                         <span>Mood</span>
@@ -777,7 +777,7 @@ export const AICompanionPage: React.FC = () => {
                       </p>
                     </div>
 
-                    <div className="p-2.5 rounded-xl border border-earth-200 dark:border-forest-800 bg-earth-50/60 dark:bg-forest-800/40 text-left">
+                    <div className="p-2.5 rounded-xl border border-earth-200/80 dark:border-forest-800 bg-earth-50/60 dark:bg-forest-800/40 text-left">
                       <div className="flex items-center gap-1.5 text-[10px] font-semibold text-earth-500 dark:text-sage-400 mb-0.5">
                         <Moon className="w-3 h-3 text-indigo-500" />
                         <span>Sleep</span>
@@ -803,7 +803,7 @@ export const AICompanionPage: React.FC = () => {
                         <button
                           key={idx}
                           onClick={() => handleSend(undefined, prompt)}
-                          className="text-left text-xs p-3 rounded-xl border border-earth-200 dark:border-forest-800 hover:bg-earth-100 dark:hover:bg-forest-800 text-earth-800 dark:text-sage-200 transition-colors flex items-center justify-between group"
+                          className="text-left text-xs p-3 rounded-xl border border-earth-200/80 dark:border-forest-800 hover:bg-earth-100 dark:hover:bg-forest-800 text-earth-800 dark:text-sage-200 transition-colors flex items-center justify-between group"
                         >
                           <span className="truncate pr-2">"{prompt}"</span>
                           <ChevronRight className="w-3.5 h-3.5 text-earth-400 group-hover:text-sage-600 transition-colors flex-shrink-0" />
@@ -820,14 +820,37 @@ export const AICompanionPage: React.FC = () => {
                   const isSpeakingThis = speakingMsgId === msg.id;
 
                   return (
-                    <div key={msg.id} className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
+                    <div
+                      key={msg.id}
+                      className={`flex items-end gap-2.5 animate-fade-up ${
+                        isUser ? 'justify-end' : 'justify-start'
+                      }`}
+                    >
+                      {/* Assistant avatar anchors the reply to a speaker; user messages need none. */}
+                      {!isUser && (
+                        <div
+                          className={`flex-shrink-0 w-8 h-8 rounded-xl flex items-center justify-center shadow-soft ${
+                            isCrisis
+                              ? 'bg-rose-100 dark:bg-rose-950 text-rose-600 dark:text-rose-300'
+                              : 'bg-sage-600 text-white'
+                          }`}
+                          aria-hidden="true"
+                        >
+                          {isCrisis ? (
+                            <AlertTriangle className="w-4 h-4" />
+                          ) : (
+                            <Sparkles className="w-4 h-4" />
+                          )}
+                        </div>
+                      )}
                       <div
-                        className={`max-w-[88%] md:max-w-2xl p-4 rounded-2xl text-sm leading-relaxed ${
+                        className={`max-w-[85%] md:max-w-2xl px-4 py-3.5 text-sm leading-relaxed
+                                    transition-shadow duration-300 ${
                           isUser
-                            ? 'bg-sage-600 text-white rounded-br-none shadow-sm'
+                            ? 'bg-sage-600 text-white rounded-2xl rounded-br-md shadow-card'
                             : isCrisis
-                            ? 'bg-rose-50 dark:bg-rose-950/60 border border-rose-300 dark:border-rose-900 text-rose-950 dark:text-rose-100 rounded-bl-none shadow-xs'
-                            : 'bg-earth-100 dark:bg-forest-800 text-forest-950 dark:text-sage-100 rounded-bl-none shadow-xs'
+                            ? 'bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-900/70 text-rose-950 dark:text-rose-100 rounded-2xl rounded-bl-md shadow-soft'
+                            : 'bg-white dark:bg-forest-800 border border-earth-200/70 dark:border-forest-700/60 text-forest-950 dark:text-sage-100 rounded-2xl rounded-bl-md shadow-soft'
                         }`}
                       >
                         {/* Crisis Emergency Banner */}
@@ -886,6 +909,31 @@ export const AICompanionPage: React.FC = () => {
                 })
               )}
 
+              {/* Typing indicator — shown while a reply is in flight and nothing has streamed yet. */}
+              {loading && !activeToolInfo && (
+                <div className="flex items-end gap-2.5 justify-start animate-fade-in">
+                  <div className="flex-shrink-0 w-8 h-8 rounded-xl bg-sage-600 text-white flex items-center justify-center shadow-soft">
+                    <Sparkles className="w-4 h-4" />
+                  </div>
+                  <div
+                    className="px-4 py-3.5 rounded-2xl rounded-bl-md bg-white dark:bg-forest-800
+                               border border-earth-200/70 dark:border-forest-700/60 shadow-soft"
+                    role="status"
+                    aria-label="Companion is composing a reply"
+                  >
+                    <span className="flex items-center gap-1">
+                      {[0, 1, 2].map((i) => (
+                        <span
+                          key={i}
+                          className="w-1.5 h-1.5 rounded-full bg-sage-500 dark:bg-sage-400 animate-typing-dot"
+                          style={{ animationDelay: `${i * 0.15}s` }}
+                        />
+                      ))}
+                    </span>
+                  </div>
+                </div>
+              )}
+
               {/* Tool Execution In-Progress Indicator */}
               {activeToolInfo && (
                 <div className="flex justify-start">
@@ -901,7 +949,7 @@ export const AICompanionPage: React.FC = () => {
               {/* Streaming Output Indicator */}
               {streamingText && (
                 <div className="flex justify-start">
-                  <div className="max-w-[88%] md:max-w-2xl p-4 rounded-2xl text-sm leading-relaxed bg-earth-100 dark:bg-forest-800 text-forest-950 dark:text-sage-100 rounded-bl-none shadow-xs">
+                  <div className="max-w-[88%] md:max-w-2xl p-4 rounded-2xl text-sm leading-relaxed bg-earth-100 dark:bg-forest-800 text-forest-950 dark:text-sage-100 rounded-bl-none shadow-soft">
                     <MarkdownRenderer content={streamingText} />
                     <span className="inline-block w-2 h-4 ml-1 bg-sage-600 animate-pulse align-middle" />
                   </div>
@@ -913,7 +961,7 @@ export const AICompanionPage: React.FC = () => {
                 if (act.status !== 'pending') return null;
                 return (
                   <div key={act.action_id} className="flex justify-start w-full">
-                    <div className="w-full max-w-lg p-4 rounded-2xl border-2 border-amber-300 dark:border-amber-700 bg-amber-50/80 dark:bg-amber-950/40 text-forest-950 dark:text-amber-100 shadow-sm">
+                    <div className="w-full max-w-lg p-4 rounded-2xl border-2 border-amber-300 dark:border-amber-700 bg-amber-50/80 dark:bg-amber-950/40 text-forest-950 dark:text-amber-100 shadow-soft">
                       <div className="flex items-center gap-2 text-xs font-bold text-amber-800 dark:text-amber-300 mb-1.5">
                         <AlertTriangle className="w-4 h-4 text-amber-600" />
                         <span>Explicit Confirmation Required</span>
@@ -924,7 +972,7 @@ export const AICompanionPage: React.FC = () => {
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => handleConfirmAction(act.action_id)}
-                          className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
+                          className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-soft"
                         >
                           <Check className="w-3.5 h-3.5" />
                           <span>Confirm Permanent Action</span>
@@ -945,7 +993,7 @@ export const AICompanionPage: React.FC = () => {
             </div>
 
             {/* Typing dynamics toggle */}
-            <div className="px-4 py-1.5 bg-earth-50 dark:bg-forest-950/40 border-t border-earth-200 dark:border-forest-800 flex items-center justify-between text-[11px] text-earth-500 dark:text-sage-400">
+            <div className="px-4 py-1.5 bg-earth-50 dark:bg-forest-950/40 border-t border-earth-200/80 dark:border-forest-800 flex items-center justify-between text-[11px] text-earth-500 dark:text-sage-400">
               <label className="flex items-center gap-1.5 cursor-pointer">
                 <input
                   type="checkbox"
@@ -964,7 +1012,7 @@ export const AICompanionPage: React.FC = () => {
             </div>
 
             {/* Input Bar with Microphone & Voice STT */}
-            <form onSubmit={handleSend} className="p-3.5 border-t border-earth-200 dark:border-forest-800 flex items-center gap-2 bg-white dark:bg-forest-900">
+            <form onSubmit={handleSend} className="p-3.5 border-t border-earth-200/80 dark:border-forest-800 flex items-center gap-2 bg-white dark:bg-forest-900">
               <button
                 type="button"
                 onClick={toggleListening}
@@ -990,7 +1038,7 @@ export const AICompanionPage: React.FC = () => {
               <button
                 type="submit"
                 disabled={loading || !input.trim()}
-                className="px-4 py-2.5 rounded-xl bg-sage-600 hover:bg-sage-700 text-white transition-colors disabled:opacity-40 flex items-center gap-1.5 text-sm font-medium shadow-xs"
+                className="px-4 py-2.5 rounded-xl bg-sage-600 hover:bg-sage-700 text-white transition-colors disabled:opacity-40 flex items-center gap-1.5 text-sm font-medium shadow-soft"
               >
                 <span>Send</span>
                 <Send className="w-4 h-4" />
@@ -1000,7 +1048,7 @@ export const AICompanionPage: React.FC = () => {
         ) : (
           /* Tab 2: Memories & Transparency Management */
           <div className="flex-1 p-4 md:p-6 overflow-y-auto space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-earth-200 dark:border-forest-800">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-earth-200/80 dark:border-forest-800">
               <div>
                 <h2 className="text-sm font-bold text-forest-950 dark:text-sage-100 flex items-center gap-2">
                   <span>Transparent AI Memory</span>
@@ -1071,7 +1119,7 @@ export const AICompanionPage: React.FC = () => {
                   placeholder="Search memories..."
                   value={memorySearch}
                   onChange={(e) => setMemorySearch(e.target.value)}
-                  className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-earth-200 dark:border-forest-800 bg-earth-50 dark:bg-forest-800 text-forest-950 dark:text-sage-100 outline-none"
+                  className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-earth-200/80 dark:border-forest-800 bg-earth-50 dark:bg-forest-800 text-forest-950 dark:text-sage-100 outline-none"
                 />
               </div>
 
@@ -1102,7 +1150,7 @@ export const AICompanionPage: React.FC = () => {
                 {filteredMemories.map((m) => (
                   <div
                     key={m.id}
-                    className="p-3.5 rounded-xl border border-earth-200 dark:border-forest-800 bg-earth-50/70 dark:bg-forest-800/40 flex items-center justify-between group hover:border-sage-300 transition-colors"
+                    className="p-3.5 rounded-xl border border-earth-200/80 dark:border-forest-800 bg-earth-50/70 dark:bg-forest-800/40 flex items-center justify-between group hover:border-sage-300 transition-colors"
                   >
                     <div>
                       <div className="flex items-center gap-2 mb-1">

@@ -102,11 +102,11 @@ export const PrivacyCenterPage: React.FC = () => {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-xl font-semibold text-forest-950 dark:text-sage-100 flex items-center gap-2">
+        <h1 className="text-2xl font-bold tracking-tight text-forest-950 dark:text-sage-50 flex items-center gap-2">
           <Lock className="w-5 h-5 text-sage-600 dark:text-sage-400" />
           <span>Privacy & Data Sovereignty Center</span>
         </h1>
-        <p className="text-xs text-earth-600 dark:text-sage-400 mt-0.5">
+        <p className="text-sm text-earth-600 dark:text-sage-400 mt-1 leading-relaxed">
           You own your biological and mental wellness data. Control granular permissions, export your complete archive, or purge your account.
         </p>
       </div>
@@ -119,7 +119,7 @@ export const PrivacyCenterPage: React.FC = () => {
       )}
 
       {/* Consent Toggles Grid */}
-      <div className="bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 rounded-2xl p-6 shadow-sm space-y-4">
+      <div className="bg-white dark:bg-forest-900 border border-earth-200/80 dark:border-forest-800 rounded-2xl p-6 shadow-soft space-y-4">
         <h2 className="text-sm font-semibold text-forest-950 dark:text-sage-100">
           Granular Feature & Sensor Permissions
         </h2>
@@ -265,7 +265,7 @@ export const PrivacyCenterPage: React.FC = () => {
       {/* Data Portability & Account Purge */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Export Data */}
-        <div className="bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 rounded-2xl p-6 shadow-sm flex flex-col justify-between">
+        <div className="bg-white dark:bg-forest-900 border border-earth-200/80 dark:border-forest-800 rounded-2xl p-6 shadow-soft flex flex-col justify-between">
           <div>
             <h3 className="text-sm font-semibold text-forest-950 dark:text-sage-100 mb-1 flex items-center gap-2">
               <Download className="w-4 h-4 text-sage-600" />
@@ -280,7 +280,7 @@ export const PrivacyCenterPage: React.FC = () => {
             <button
               onClick={handleExport}
               disabled={exporting}
-              className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-xl bg-sage-600 hover:bg-sage-700 text-white text-xs font-semibold transition-colors shadow-sm disabled:opacity-50"
+              className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-xl bg-sage-600 hover:bg-sage-700 text-white text-xs font-semibold transition-colors shadow-soft disabled:opacity-50"
             >
               <Download className="w-3.5 h-3.5" />
               <span>{exporting ? 'Generating JSON Package...' : 'Download JSON Archive'}</span>
@@ -289,7 +289,7 @@ export const PrivacyCenterPage: React.FC = () => {
         </div>
 
         {/* Delete Account */}
-        <div className="bg-white dark:bg-forest-900 border border-rose-200 dark:border-rose-900/60 rounded-2xl p-6 shadow-sm flex flex-col justify-between">
+        <div className="bg-white dark:bg-forest-900 border border-rose-200 dark:border-rose-900/60 rounded-2xl p-6 shadow-soft flex flex-col justify-between">
           <div>
             <h3 className="text-sm font-semibold text-rose-900 dark:text-rose-200 mb-1 flex items-center gap-2">
               <Trash2 className="w-4 h-4 text-rose-600" />
@@ -303,7 +303,7 @@ export const PrivacyCenterPage: React.FC = () => {
           <div className="mt-6 pt-4 border-t border-rose-100 dark:border-rose-900/40">
             <button
               onClick={handleDeleteAccount}
-              className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold transition-colors shadow-sm"
+              className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold transition-colors shadow-soft"
             >
               <Trash2 className="w-3.5 h-3.5" />
               <span>Permanently Delete My Data</span>

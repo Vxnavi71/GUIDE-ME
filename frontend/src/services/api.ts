@@ -1,21 +1,23 @@
+import { Capacitor } from '@capacitor/core';
+
 export class ApiService {
   public static getApiBaseUrl(): string {
     const custom = localStorage.getItem('guideme_custom_api_url');
     if (custom && custom.trim()) {
-      const trimmed = custom.trim().replace(/\/+$/, '');
-      // Automatically purge stale local/LAN development IP overrides
-      if (
-        trimmed.includes('localhost') ||
-        trimmed.includes('127.0.0.1') ||
-        trimmed.includes('192.168.') ||
-        trimmed.includes('10.') ||
-        trimmed.includes('172.')
-      ) {
-        localStorage.removeItem('guideme_custom_api_url');
-      } else {
-        return trimmed;
-      }
+      return custom.trim().replace(/\/+$/, '');
     }
+
+    // In a desktop/laptop web browser running on localhost / 127.0.0.1:
+    // Connect directly to the local backend server (default http://127.0.0.1:8000/api/v1)
+    // unless custom server is explicitly chosen in the Server modal
+    if (
+      typeof window !== 'undefined' &&
+      !Capacitor.isNativePlatform() &&
+      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    ) {
+      return 'http://127.0.0.1:8000/api/v1';
+    }
+
     return (import.meta.env.VITE_API_BASE_URL || 'https://guide-me-kja5.onrender.com/api/v1').replace(/\/+$/, '');
   }
 
