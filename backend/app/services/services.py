@@ -248,6 +248,9 @@ class CompanionService:
         if not conv:
             conv = await self.conv_repo.get_or_create_active_conversation(user_id)
 
+        # Build prior history BEFORE saving the current turn
+        history = [{"role": m.sender_role, "content": m.content} for m in (conv.messages[-20:] if conv.messages else [])]
+
         # 1. Save user message
         user_msg = await self.conv_repo.add_message(conv.id, user_id, "user", content)
 
@@ -272,7 +275,6 @@ class CompanionService:
 
         # 3. Multimodal Context Assembling
         system_prompt, user = await self._assemble_system_prompt(user_id, typing_dynamics=typing_dynamics)
-        history = [{"role": m.sender_role, "content": m.content} for m in conv.messages[-20:]]
 
         # Store typing dynamics
         if typing_dynamics and user and user.consent and getattr(user.consent, "typing_dynamics_consent", False):
@@ -289,6 +291,7 @@ class CompanionService:
 
         # 4. Invoke LLM Provider with tool dispatching
         provider = get_llm_provider()
+        logger.info(f"AI Companion for user {user_id} using provider: {type(provider).__name__}")
         response_text, extracted_memories = await provider.generate_response(
             content,
             system_prompt,
@@ -329,6 +332,9 @@ class CompanionService:
         if not conv:
             conv = await self.conv_repo.get_or_create_active_conversation(user_id)
 
+        # Build prior history BEFORE saving the current turn
+        history = [{"role": m.sender_role, "content": m.content} for m in (conv.messages[-20:] if conv.messages else [])]
+
         # Save user message
         await self.conv_repo.add_message(conv.id, user_id, "user", content)
 
@@ -350,11 +356,10 @@ class CompanionService:
                 metadata_json={"safety_triggered": True, "crisis": True},
             )
             yield f"data: {json.dumps({'type': 'crisis', 'content': safety_eval['intervention_text'], 'message_id': asst_msg.id})}\n\n"
-            yield f"data: {json.dumps({'type': 'done', 'full_text': safety_eval['intervention_text']})}\n\n"
+            yield f"data: {json.dumps({'type': 'done', 'full_text': safety_eval['intervention_text'], 'conversation_id': conv.id, 'provider': 'Safety Guardrail'})}\n\n"
             return
 
         system_prompt, user = await self._assemble_system_prompt(user_id, typing_dynamics=typing_dynamics)
-        history = [{"role": m.sender_role, "content": m.content} for m in conv.messages[-20:]]
 
         # Store typing dynamics
         if typing_dynamics and user and user.consent and getattr(user.consent, "typing_dynamics_consent", False):
@@ -370,6 +375,7 @@ class CompanionService:
             await self.db.flush()
 
         provider = get_llm_provider()
+        logger.info(f"AI Companion streaming for user {user_id} using provider: {type(provider).__name__}")
         from app.ai.gemini_provider import GeminiProvider
 
         accumulated_text = []
@@ -381,6 +387,9 @@ class CompanionService:
                     accumulated_text.append(event.get("content", ""))
                 elif event.get("type") == "done":
                     extracted_memories = event.get("extracted_memories", [])
+                    event["conversation_id"] = conv.id
+                    if "provider" not in event:
+                        event["provider"] = "Gemini 1.5 Flash"
                 yield f"data: {json.dumps(event)}\n\n"
         else:
             # Simulated streaming for Mock/External
@@ -391,7 +400,7 @@ class CompanionService:
                 chunk = w + (" " if i < len(words) - 1 else "")
                 accumulated_text.append(chunk)
                 yield f"data: {json.dumps({'type': 'delta', 'content': chunk})}\n\n"
-            yield f"data: {json.dumps({'type': 'done', 'full_text': resp_text, 'extracted_memories': extracted})}\n\n"
+            yield f"data: {json.dumps({'type': 'done', 'full_text': resp_text, 'extracted_memories': extracted, 'conversation_id': conv.id, 'provider': 'Offline Companion'})}\n\n"
 
         full_content = "".join(accumulated_text).strip()
         if not full_content:

@@ -51,6 +51,7 @@ export const App: React.FC = () => {
           <Route path="journal" element={<JournalPage />} />
           <Route path="personality" element={<PersonalityPage />} />
           <Route path="stress" element={<StressDistressPage />} />
+          <Route path="mood-stress" element={<StressDistressPage />} />
           <Route path="wearables" element={<WearablesPage />} />
           <Route path="digital-wellbeing" element={<DigitalWellbeingPage />} />
           <Route path="goals" element={<GoalsPage />} />

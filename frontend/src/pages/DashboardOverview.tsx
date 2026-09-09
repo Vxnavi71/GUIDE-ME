@@ -17,6 +17,9 @@ import {
   BookOpen,
   Camera,
   Bot,
+  X,
+  Heart,
+  Sliders,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -28,6 +31,7 @@ import {
   CartesianGrid,
 } from 'recharts';
 import { ApiService } from '../services/api';
+import { useToast } from '../components/ToastNotification';
 import { CircularProgressRing } from '../components/CircularProgressRing';
 
 interface DashboardSummary {
@@ -63,6 +67,15 @@ export const DashboardOverview: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [togglingHabitId, setTogglingHabitId] = useState<string | null>(null);
+  const { showToast } = useToast();
+
+  // Mood Pulse Interactive Check-in Modal State
+  const [showMoodModal, setShowMoodModal] = useState(false);
+  const [moodScore, setMoodScore] = useState<number>(7.0);
+  const [energyLevel, setEnergyLevel] = useState<string>('moderate');
+  const [moodTags, setMoodTags] = useState<string[]>(['calm']);
+  const [moodNote, setMoodNote] = useState<string>('');
+  const [submittingMood, setSubmittingMood] = useState(false);
 
   const loadDashboardData = useCallback(async (isInitial = false) => {
     if (isInitial) setLoading(true);
@@ -112,6 +125,31 @@ export const DashboardOverview: React.FC = () => {
     }
   };
 
+  const handleSaveMood = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmittingMood(true);
+    try {
+      const valence = Number(((moodScore - 5.5) / 4.5).toFixed(2));
+      const arousal = energyLevel === 'high' ? 0.8 : energyLevel === 'low' ? 0.3 : 0.5;
+      await ApiService.logMood({
+        score: Number(moodScore),
+        valence,
+        arousal,
+        energy_level: energyLevel,
+        tags: moodTags,
+        note: moodNote.trim() || undefined,
+      });
+      showToast(`Mood Pulse (${moodScore}/10) recorded successfully!`, 'success');
+      setShowMoodModal(false);
+      setMoodNote('');
+      await loadDashboardData(false);
+    } catch (err) {
+      showToast('Could not record Mood Pulse. Please check connection.', 'error');
+    } finally {
+      setSubmittingMood(false);
+    }
+  };
+
   const userName = summary?.user_name || 'Friend';
   const latestMood = summary?.latest_mood ?? null;
   const moodLabel = summary?.mood_label || (latestMood !== null ? 'Recorded' : 'No mood logged yet');
@@ -132,7 +170,8 @@ export const DashboardOverview: React.FC = () => {
   const chartData = rawTrends.map((p) => ({
     day: p.day,
     mood: p.mood !== null ? p.mood : undefined,
-    stress: p.stress !== null ? p.stress : undefined,
+    moodScaled: p.mood !== null ? Math.round(p.mood * 10) : undefined, // 1-10 mapped to 10-100 for visual symmetry with stress curve
+    stress: p.stress !== null ? Math.round(p.stress) : undefined,
   }));
 
   const sleepPercent = sleepHours !== null ? Math.min(Math.round((sleepHours / sleepTarget) * 100), 100) : 0;
@@ -215,10 +254,13 @@ export const DashboardOverview: React.FC = () => {
       {/* 4 Pulse Cards with Mini Visuals */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Mood Pulse */}
-        <div className="p-5 rounded-2xl bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 shadow-sm flex items-center justify-between">
+        <div
+          onClick={() => setShowMoodModal(true)}
+          className="p-5 rounded-2xl bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 shadow-sm flex items-center justify-between cursor-pointer hover:border-sage-400 dark:hover:border-forest-600 transition-all group"
+        >
           <div>
             <div className="flex items-center gap-1.5 text-earth-500 dark:text-sage-400 mb-1">
-              <Smile className="w-4 h-4 text-amber-500" />
+              <Smile className="w-4 h-4 text-amber-500 group-hover:scale-110 transition-transform" />
               <span className="text-xs font-medium uppercase tracking-wider">Mood Pulse</span>
             </div>
             <div className="text-2xl font-bold text-forest-950 dark:text-sage-100">
@@ -234,16 +276,16 @@ export const DashboardOverview: React.FC = () => {
               {latestMood !== null ? (
                 <>
                   {latestMood >= 7 ? <TrendingUp className="w-3.5 h-3.5 text-emerald-600" /> : <TrendingDown className="w-3.5 h-3.5 text-amber-500" />}
-                  <span>{moodLabel}</span>
+                  <span>{moodLabel} · <span className="text-sage-600 dark:text-sage-300 underline font-semibold">Update</span></span>
                 </>
               ) : (
-                <Link to="/dashboard/mood-stress" className="text-sage-600 hover:underline">Log today's mood</Link>
+                <span className="text-sage-600 dark:text-sage-300 font-semibold underline">Tap to log today's mood</span>
               )}
             </div>
           </div>
-          <Link to="/dashboard/mood-stress" className="text-earth-400 hover:text-sage-600">
-            <ArrowUpRight className="w-4 h-4" />
-          </Link>
+          <div className="p-2 rounded-xl bg-earth-100 dark:bg-forest-800 text-earth-500 dark:text-sage-400 group-hover:bg-sage-100 dark:group-hover:bg-forest-700 group-hover:text-sage-700 transition-colors">
+            <Sparkles className="w-4 h-4" />
+          </div>
         </div>
 
         {/* Stress Index */}
@@ -420,20 +462,23 @@ export const DashboardOverview: React.FC = () => {
                       color: '#e5ece5',
                       fontSize: '12px',
                     }}
-                    formatter={(value: any, name: any) => [
-                      value !== undefined ? (name === 'Mood (1-10)' ? `${value} / 10` : `${value} / 100`) : 'No record',
-                      name,
-                    ]}
+                    formatter={(value: any, name: any) => {
+                      if (value === undefined) return ['No record', name];
+                      if (String(name).includes('Mood')) {
+                        return [`${(Number(value) / 10).toFixed(1)} / 10`, 'Mood Pulse'];
+                      }
+                      return [`${value} / 100`, 'Stress Load'];
+                    }}
                   />
                   <Area
                     type="monotone"
-                    dataKey="mood"
+                    dataKey="moodScaled"
                     stroke="#466846"
                     strokeWidth={2}
                     connectNulls={true}
                     fillOpacity={1}
                     fill="url(#colorMood)"
-                    name="Mood (1-10)"
+                    name="Mood Pulse (1-10)"
                   />
                   <Area
                     type="monotone"
@@ -457,12 +502,12 @@ export const DashboardOverview: React.FC = () => {
                   Log your daily mood check-ins or connect a biometric wearable to generate your personal emotional and autonomic resilience curves.
                 </p>
                 <div className="flex items-center gap-2 mt-4">
-                  <Link
-                    to="/dashboard/mood-stress"
+                  <button
+                    onClick={() => setShowMoodModal(true)}
                     className="px-3 py-1.5 rounded-lg bg-sage-600 hover:bg-sage-700 text-white text-xs font-semibold transition-colors"
                   >
-                    Log Mood
-                  </Link>
+                    Log Mood Pulse
+                  </button>
                   <Link
                     to="/dashboard/wearables"
                     className="px-3 py-1.5 rounded-lg border border-earth-300 dark:border-forest-700 text-xs font-medium text-earth-700 dark:text-sage-300 hover:bg-earth-100 dark:hover:bg-forest-800 transition-colors"
@@ -697,6 +742,147 @@ export const DashboardOverview: React.FC = () => {
           <div className="text-[10px] text-earth-500 dark:text-sage-400 mt-0.5">Cognitive reflection</div>
         </Link>
       </div>
+
+      {/* Interactive Mood Pulse Check-In Modal */}
+      {showMoodModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-5">
+            <div className="flex items-center justify-between border-b border-earth-200 dark:border-forest-800 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-600">
+                  <Smile className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold text-forest-950 dark:text-sage-100">
+                    Log Daily Mood Pulse
+                  </h3>
+                  <p className="text-xs text-earth-500 dark:text-sage-400">
+                    Record your real-time emotional state & energy
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowMoodModal(false)}
+                className="p-1.5 rounded-lg hover:bg-earth-100 dark:hover:bg-forest-800 text-earth-500 dark:text-sage-400 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveMood} className="space-y-4">
+              {/* Score Slider */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-medium text-earth-700 dark:text-sage-300">
+                    Overall Mood Rating
+                  </label>
+                  <span className="text-lg font-bold text-sage-600 dark:text-sage-400">
+                    {moodScore.toFixed(1)} <span className="text-xs font-normal text-earth-500 dark:text-sage-400">/ 10</span>
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="1.0"
+                  max="10.0"
+                  step="0.5"
+                  value={moodScore}
+                  onChange={(e) => setMoodScore(parseFloat(e.target.value))}
+                  className="w-full accent-sage-600 cursor-pointer h-2 bg-earth-200 dark:bg-forest-800 rounded-lg appearance-none"
+                />
+                <div className="flex justify-between text-[11px] text-earth-500 dark:text-sage-400 mt-1">
+                  <span>1.0 · Low / Reflective</span>
+                  <span>5.5 · Balanced</span>
+                  <span>10.0 · Vibrant</span>
+                </div>
+              </div>
+
+              {/* Energy Level Selector */}
+              <div>
+                <label className="block text-xs font-medium text-earth-700 dark:text-sage-300 mb-1.5">
+                  Current Vitality / Energy Level
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {(['low', 'moderate', 'high'] as const).map((lvl) => (
+                    <button
+                      key={lvl}
+                      type="button"
+                      onClick={() => setEnergyLevel(lvl)}
+                      className={`py-2 px-3 text-xs font-medium rounded-xl border capitalize transition-all ${
+                        energyLevel === lvl
+                          ? 'bg-sage-600 border-sage-600 text-white shadow-sm'
+                          : 'bg-earth-50 dark:bg-forest-800/60 border-earth-200 dark:border-forest-700 text-earth-700 dark:text-sage-300 hover:border-sage-400'
+                      }`}
+                    >
+                      {lvl}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Mood Tags */}
+              <div>
+                <label className="block text-xs font-medium text-earth-700 dark:text-sage-300 mb-1.5">
+                  Emotion & State Tags
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {['calm', 'grateful', 'focused', 'energized', 'anxious', 'tired', 'reflective', 'hopeful', 'stressed'].map((tag) => {
+                    const selected = moodTags.includes(tag);
+                    return (
+                      <button
+                        key={tag}
+                        type="button"
+                        onClick={() => {
+                          if (selected) setMoodTags(moodTags.filter((t) => t !== tag));
+                          else setMoodTags([...moodTags, tag]);
+                        }}
+                        className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                          selected
+                            ? 'bg-sage-100 dark:bg-forest-800 border-sage-500 text-sage-800 dark:text-sage-200 font-medium'
+                            : 'bg-white dark:bg-forest-900 border-earth-200 dark:border-forest-800 text-earth-600 dark:text-sage-400 hover:border-earth-400'
+                        }`}
+                      >
+                        {tag}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Reflection Note */}
+              <div>
+                <label className="block text-xs font-medium text-earth-700 dark:text-sage-300 mb-1">
+                  Notes / Context (Optional)
+                </label>
+                <textarea
+                  value={moodNote}
+                  onChange={(e) => setMoodNote(e.target.value)}
+                  placeholder="What's contributing to how you feel right now?"
+                  rows={2}
+                  className="w-full text-xs p-2.5 rounded-xl border border-earth-300 dark:border-forest-700 bg-white dark:bg-forest-950 text-forest-950 dark:text-sage-100 focus:outline-none focus:ring-1 focus:ring-sage-500 resize-none"
+                />
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-earth-200 dark:border-forest-800">
+                <button
+                  type="button"
+                  onClick={() => setShowMoodModal(false)}
+                  className="px-4 py-2 text-xs font-medium text-earth-700 dark:text-sage-300 hover:bg-earth-100 dark:hover:bg-forest-800 rounded-xl transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingMood}
+                  className="px-4 py-2 text-xs font-semibold text-white bg-sage-600 hover:bg-sage-700 rounded-xl transition-colors shadow-sm disabled:opacity-50"
+                >
+                  {submittingMood ? 'Recording...' : 'Save Mood Pulse'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

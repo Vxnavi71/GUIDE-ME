@@ -62,6 +62,7 @@ export const AICompanionPage: React.FC = () => {
   // Ecosystem Pulse State for Contextual Home
   const [userProfile, setUserProfile] = useState<any>(null);
   const [dashboardSummary, setDashboardSummary] = useState<any>(null);
+  const [activeProvider, setActiveProvider] = useState<string>('Mindful AI');
 
   const { consent } = useConsent();
   const { showToast } = useToast();
@@ -321,6 +322,12 @@ export const AICompanionPage: React.FC = () => {
           setStreamingText(event.content);
         } else if (event.type === 'done') {
           // Finished streaming
+          if (event.conversation_id) {
+            setActiveConvId(event.conversation_id);
+          }
+          if (event.provider) {
+            setActiveProvider(event.provider);
+          }
           const finalMsg = {
             id: `asst-${Date.now()}`,
             sender_role: 'assistant',
@@ -345,6 +352,12 @@ export const AICompanionPage: React.FC = () => {
       console.warn('Streaming error; attempting non-streaming fallback:', err);
       try {
         const fallbackMsg = await ApiService.sendChatMessage(textToSend, activeConvId || undefined, typingDynamicsPayload);
+        if (fallbackMsg?.conversation_id) {
+          setActiveConvId(fallbackMsg.conversation_id);
+        }
+        if (fallbackMsg?.metadata_json?.provider) {
+          setActiveProvider(fallbackMsg.metadata_json.provider);
+        }
         setMessages((prev) => [...prev, fallbackMsg]);
         if (autoSpeak && fallbackMsg?.content) {
           speakText(fallbackMsg.content, fallbackMsg.id);
@@ -647,6 +660,10 @@ export const AICompanionPage: React.FC = () => {
                 <span>Personal AI Companion</span>
                 <span className="text-[10px] bg-sage-100 dark:bg-forest-800 text-sage-800 dark:text-sage-200 border border-sage-300 dark:border-forest-700 px-2 py-0.5 rounded-full font-medium">
                   Tool-Enabled
+                </span>
+                <span className="text-[10px] bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-full font-medium flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                  {activeProvider}
                 </span>
               </h1>
               <p className="text-[11px] text-earth-500 dark:text-sage-400 hidden sm:block">

@@ -34,30 +34,76 @@ class GeminiProvider(BaseLLMProvider):
     ) -> List[Dict[str, Any]]:
         """
         Builds Gemini-compliant contents array from conversation history.
-        Preserves sliding window (last 14 messages).
+        Strictly guarantees:
+        1. Only 'user' and 'model' roles.
+        2. First message is 'user'.
+        3. Last message is 'user' (containing user_message).
+        4. Messages strictly alternate between 'user' and 'model'.
+        5. Consecutive same-role messages are merged into a single turn.
+        6. No duplicate trailing user messages.
         """
-        contents: List[Dict[str, Any]] = []
+        raw_turns: List[Dict[str, str]] = []
         recent_history = conversation_history[-20:] if len(conversation_history) > 20 else conversation_history
 
         for item in recent_history:
-            role = item.get("role")
-            content = item.get("content", "")
+            role = item.get("role", "")
+            content = (item.get("content") or "").strip()
             if not content:
                 continue
 
-            # Gemini expects 'user' or 'model'
             gemini_role = "user" if role == "user" else "model"
+            raw_turns.append({"role": gemini_role, "text": content})
+
+        # Check if history already ends with the user turn
+        current_text = user_message.strip()
+        if not raw_turns or raw_turns[-1]["role"] != "user" or raw_turns[-1]["text"] != current_text:
+            if raw_turns and raw_turns[-1]["role"] == "user":
+                # If last turn in history was also user with different text, combine them
+                raw_turns[-1]["text"] = f"{raw_turns[-1]['text']}\n\n{current_text}"
+            else:
+                raw_turns.append({"role": "user", "text": current_text})
+
+        # Merge any consecutive same-role turns
+        merged_turns: List[Dict[str, str]] = []
+        for turn in raw_turns:
+            if not turn["text"]:
+                continue
+            if merged_turns and merged_turns[-1]["role"] == turn["role"]:
+                merged_turns[-1]["text"] += f"\n\n{turn['text']}"
+            else:
+                merged_turns.append({"role": turn["role"], "text": turn["text"]})
+
+        # Gemini requires contents to start with 'user'
+        while merged_turns and merged_turns[0]["role"] != "user":
+            merged_turns.pop(0)
+
+        # If empty (e.g. only leading model messages), add current user turn
+        if not merged_turns:
+            merged_turns.append({"role": "user", "text": current_text or "Hello"})
+
+        # Guarantee strict alternation
+        contents: List[Dict[str, Any]] = []
+        expected_role = "user"
+        for turn in merged_turns:
+            if turn["role"] == expected_role:
+                contents.append({
+                    "role": turn["role"],
+                    "parts": [{"text": turn["text"]}],
+                })
+                expected_role = "model" if expected_role == "user" else "user"
+            else:
+                # Same role repeated unexpectedly: merge with previous parts
+                if contents:
+                    contents[-1]["parts"][0]["text"] += f"\n\n{turn['text']}"
+
+        # Ensure the final turn is 'user'
+        if contents and contents[-1]["role"] != "user":
             contents.append({
-                "role": gemini_role,
-                "parts": [{"text": content}],
+                "role": "user",
+                "parts": [{"text": current_text or "Please continue."}],
             })
 
-        # Append current user turn
-        contents.append({
-            "role": "user",
-            "parts": [{"text": user_message}],
-        })
-
+        logger.debug(f"Built Gemini contents with {len(contents)} alternating turns.")
         return contents
 
     async def generate_response(
@@ -190,7 +236,7 @@ class GeminiProvider(BaseLLMProvider):
             for i, word in enumerate(words):
                 chunk = word + (" " if i < len(words) - 1 else "")
                 yield {"type": "delta", "content": chunk}
-            yield {"type": "done", "full_text": resp, "extracted_memories": extracted}
+            yield {"type": "done", "full_text": resp, "extracted_memories": extracted, "provider": "Offline Companion"}
             return
 
         url = f"{GEMINI_API_BASE}/models/{self.model}:streamGenerateContent?alt=sse&key={self.api_key}"
@@ -221,7 +267,7 @@ class GeminiProvider(BaseLLMProvider):
                         # Fall back to mock
                         resp, extracted = await MockLLMProvider().generate_response(user_message, system_prompt, conversation_history)
                         yield {"type": "delta", "content": resp}
-                        yield {"type": "done", "full_text": resp, "extracted_memories": extracted}
+                        yield {"type": "done", "full_text": resp, "extracted_memories": extracted, "provider": "Offline Companion (Fallback)"}
                         return
 
                     async for line in response.aiter_lines():
@@ -323,13 +369,14 @@ class GeminiProvider(BaseLLMProvider):
                 "type": "done",
                 "full_text": final_text,
                 "extracted_memories": extracted,
+                "provider": "Gemini 1.5 Flash",
             }
 
         except Exception as exc:
             logger.error(f"Error in Gemini streaming: {exc}", exc_info=True)
             fallback = "I'm listening and right here with you. What feels like the best small step right now?"
             yield {"type": "delta", "content": fallback}
-            yield {"type": "done", "full_text": fallback, "extracted_memories": []}
+            yield {"type": "done", "full_text": fallback, "extracted_memories": [], "provider": "Offline Companion (Fallback)"}
 
     def _extract_memories(self, msg: str) -> List[Dict[str, Any]]:
         """

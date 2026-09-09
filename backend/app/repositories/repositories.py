@@ -379,6 +379,11 @@ class ConversationRepository(BaseRepository):
             metadata_json=metadata_json or {},
         )
         self.db.add(msg)
+        # Update conversation updated_at
+        from datetime import datetime, timezone
+        conv = await self.db.get(Conversation, conversation_id)
+        if conv:
+            conv.updated_at = datetime.now(timezone.utc)
         await self.db.flush()
         return msg
 

@@ -24,6 +24,7 @@ export const FacialAnalysisPage: React.FC = () => {
   const [analyzing, setAnalyzing] = useState(false);
   const [autoSample, setAutoSample] = useState(true);
   const [backgroundPaused, setBackgroundPaused] = useState(false);
+  const [videoDimensions, setVideoDimensions] = useState<{ width: number; height: number } | null>(null);
 
   const [analysisResult, setAnalysisResult] = useState<any>(null);
 
@@ -37,6 +38,16 @@ export const FacialAnalysisPage: React.FC = () => {
       stopCamera();
     };
   }, []);
+
+  // Ensure stream is attached to video element when cameraActive changes
+  useEffect(() => {
+    if (cameraActive && streamRef.current && videoRef.current) {
+      if (videoRef.current.srcObject !== streamRef.current) {
+        videoRef.current.srcObject = streamRef.current;
+      }
+      videoRef.current.play().catch((e) => console.warn('Video play error:', e));
+    }
+  }, [cameraActive]);
 
   // Automatic camera activation if consent granted and permission available
   useEffect(() => {
@@ -109,6 +120,7 @@ export const FacialAnalysisPage: React.FC = () => {
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+        videoRef.current.play().catch((e) => console.warn('Video play error:', e));
       }
       setCameraActive(true);
       setPermissionState('granted');
@@ -136,18 +148,21 @@ export const FacialAnalysisPage: React.FC = () => {
     }
     setCameraActive(false);
     setAnalysisResult(null);
+    setVideoDimensions(null);
   };
 
   const captureAndAnalyzeFrame = async () => {
     if (!videoRef.current || !canvasRef.current || !cameraActive) return;
 
     const video = videoRef.current;
+    if (video.readyState < 2) return;
+
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    canvas.width = video.videoWidth || 320;
-    canvas.height = video.videoHeight || 240;
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
     const base64Data = canvas.toDataURL('image/jpeg', 0.8);
@@ -267,15 +282,24 @@ export const FacialAnalysisPage: React.FC = () => {
         {/* Camera Viewfinder */}
         <div className="lg:col-span-7 bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 rounded-2xl p-6 shadow-sm flex flex-col items-center justify-center">
           <div className="w-full relative aspect-video bg-earth-100 dark:bg-forest-950 rounded-xl overflow-hidden border border-earth-200 dark:border-forest-800 flex items-center justify-center">
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              onLoadedMetadata={() => {
+                if (videoRef.current) {
+                  setVideoDimensions({
+                    width: videoRef.current.videoWidth,
+                    height: videoRef.current.videoHeight,
+                  });
+                  videoRef.current.play().catch((e) => console.warn('Video play error:', e));
+                }
+              }}
+              className={`w-full h-full object-cover transform -scale-x-100 ${cameraActive ? 'block' : 'hidden'}`}
+            />
             {cameraActive ? (
               <>
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className="w-full h-full object-cover transform -scale-x-100"
-                />
                 {/* Visual landmark proxy frame overlay */}
                 <div className={`absolute inset-8 border border-dashed rounded-3xl pointer-events-none flex items-center justify-center transition-colors ${
                   hasFace ? 'border-emerald-400/70' : 'border-amber-400/50'
@@ -292,16 +316,33 @@ export const FacialAnalysisPage: React.FC = () => {
                 <Camera className="w-12 h-12 mx-auto mb-2 opacity-50" />
                 <p className="text-xs font-medium">Camera is currently disabled</p>
                 <p className="text-[11px] mt-1 max-w-xs text-earth-500 dark:text-sage-500">
-                  Click "Enable Camera" above to grant browser permission and begin in-memory facial expression estimation.
+                  Click "Enable Camera" above to grant camera permission and begin in-memory facial expression estimation.
                 </p>
               </div>
             )}
             <canvas ref={canvasRef} className="hidden" />
           </div>
 
+          {/* Diagnostic Details Bar */}
+          <div className="mt-3 w-full p-2.5 rounded-xl bg-earth-50 dark:bg-forest-950 border border-earth-200 dark:border-forest-800 flex flex-wrap items-center justify-between gap-2 text-[11px] text-earth-600 dark:text-sage-400">
+            <div className="flex items-center gap-1.5">
+              <span className={`w-2 h-2 rounded-full ${cameraActive ? 'bg-emerald-500 animate-pulse' : 'bg-earth-400'}`} />
+              <span>Stream: <strong className="text-forest-900 dark:text-sage-200">{cameraActive ? 'Active' : 'Stopped'}</strong></span>
+            </div>
+            {videoDimensions && (
+              <div>Resolution: <strong className="text-forest-900 dark:text-sage-200">{videoDimensions.width} × {videoDimensions.height}</strong></div>
+            )}
+            {analysisResult && (
+              <>
+                <div>Status: <strong className="text-forest-900 dark:text-sage-200">{analysisResult.status}</strong></div>
+                <div>Quality: <strong className="text-forest-900 dark:text-sage-200">{Math.round((analysisResult.frame_quality || 0) * 100)}%</strong></div>
+              </>
+            )}
+          </div>
+
           {/* Controls below preview */}
           {cameraActive && (
-            <div className="mt-4 w-full flex items-center justify-between">
+            <div className="mt-3 w-full flex items-center justify-between">
               <label className="flex items-center gap-2 text-xs text-earth-700 dark:text-sage-300 cursor-pointer">
                 <input
                   type="checkbox"

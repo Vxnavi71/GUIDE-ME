@@ -11,6 +11,8 @@ import {
   HelpCircle,
   Clock,
   ExternalLink,
+  Smile,
+  X,
 } from 'lucide-react';
 import { ApiService } from '../services/api';
 import { useToast } from '../components/ToastNotification';
@@ -18,6 +20,7 @@ import { useToast } from '../components/ToastNotification';
 export const StressDistressPage: React.FC = () => {
   const { showToast } = useToast();
   const [stressData, setStressData] = useState<any>(null);
+  const [recentMoods, setRecentMoods] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [evaluating, setEvaluating] = useState(false);
   const [showDistressModal, setShowDistressModal] = useState(false);
@@ -25,16 +28,29 @@ export const StressDistressPage: React.FC = () => {
   const [distressSymptoms, setDistressSymptoms] = useState<string[]>([]);
   const [distressSubmitted, setDistressSubmitted] = useState(false);
 
+  // Mood Pulse Check-In State
+  const [showMoodModal, setShowMoodModal] = useState(false);
+  const [moodScore, setMoodScore] = useState<number>(7.0);
+  const [energyLevel, setEnergyLevel] = useState<string>('moderate');
+  const [moodTags, setMoodTags] = useState<string[]>(['calm']);
+  const [moodNote, setMoodNote] = useState<string>('');
+  const [submittingMood, setSubmittingMood] = useState(false);
+
   useEffect(() => {
     const loadStress = async () => {
       try {
-        const latest = await ApiService.getLatestStress();
-        if (latest) {
-          setStressData(latest);
+        const [latestStress, moods] = await Promise.allSettled([
+          ApiService.getLatestStress(),
+          ApiService.listMoods(),
+        ]);
+        if (latestStress.status === 'fulfilled' && latestStress.value) {
+          setStressData(latestStress.value);
         } else {
-          // If no logged observation exists, evaluate current signals
           const evaluated = await ApiService.evaluateStress();
           setStressData(evaluated);
+        }
+        if (moods.status === 'fulfilled') {
+          setRecentMoods(moods.value || []);
         }
       } catch (err) {
         console.error('Failed to load stress data:', err);
@@ -44,6 +60,34 @@ export const StressDistressPage: React.FC = () => {
     };
     loadStress();
   }, []);
+
+  const handleSaveMood = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmittingMood(true);
+    try {
+      const valence = Number(((moodScore - 5.5) / 4.5).toFixed(2));
+      const arousal = energyLevel === 'high' ? 0.8 : energyLevel === 'low' ? 0.3 : 0.5;
+      await ApiService.logMood({
+        score: Number(moodScore),
+        valence,
+        arousal,
+        energy_level: energyLevel,
+        tags: moodTags,
+        note: moodNote.trim() || undefined,
+      });
+      showToast(`Mood Pulse (${moodScore}/10) logged successfully!`, 'success');
+      setShowMoodModal(false);
+      setMoodNote('');
+      const updatedMoods = await ApiService.listMoods().catch(() => []);
+      setRecentMoods(updatedMoods);
+      const evaluated = await ApiService.evaluateStress().catch(() => null);
+      if (evaluated) setStressData(evaluated);
+    } catch (err) {
+      showToast('Could not record Mood Pulse.', 'error');
+    } finally {
+      setSubmittingMood(false);
+    }
+  };
 
   const handleEvaluate = async () => {
     setEvaluating(true);
@@ -136,7 +180,14 @@ export const StressDistressPage: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => setShowMoodModal(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 text-xs font-semibold hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors shadow-sm"
+          >
+            <Smile className="w-3.5 h-3.5" />
+            <span>Log Mood Pulse</span>
+          </button>
           <button
             onClick={handleEvaluate}
             disabled={evaluating}
@@ -489,6 +540,142 @@ export const StressDistressPage: React.FC = () => {
                 </div>
               </form>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Mood Pulse Check-In Modal */}
+      {showMoodModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white dark:bg-forest-900 border border-earth-200 dark:border-forest-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-5">
+            <div className="flex items-center justify-between border-b border-earth-200 dark:border-forest-800 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-600">
+                  <Smile className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold text-forest-950 dark:text-sage-100">
+                    Log Mood Pulse
+                  </h3>
+                  <p className="text-xs text-earth-500 dark:text-sage-400">
+                    Calibrate real-time emotional state with autonomic signals
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowMoodModal(false)}
+                className="p-1.5 rounded-lg hover:bg-earth-100 dark:hover:bg-forest-800 text-earth-500 dark:text-sage-400 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveMood} className="space-y-4">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-medium text-earth-700 dark:text-sage-300">
+                    Overall Mood Rating
+                  </label>
+                  <span className="text-lg font-bold text-sage-600 dark:text-sage-400">
+                    {moodScore.toFixed(1)} <span className="text-xs font-normal text-earth-500 dark:text-sage-400">/ 10</span>
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="1.0"
+                  max="10.0"
+                  step="0.5"
+                  value={moodScore}
+                  onChange={(e) => setMoodScore(parseFloat(e.target.value))}
+                  className="w-full accent-sage-600 cursor-pointer h-2 bg-earth-200 dark:bg-forest-800 rounded-lg appearance-none"
+                />
+                <div className="flex justify-between text-[11px] text-earth-500 dark:text-sage-400 mt-1">
+                  <span>1.0 · Low</span>
+                  <span>5.5 · Balanced</span>
+                  <span>10.0 · Vibrant</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-earth-700 dark:text-sage-300 mb-1.5">
+                  Current Vitality / Energy Level
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {(['low', 'moderate', 'high'] as const).map((lvl) => (
+                    <button
+                      key={lvl}
+                      type="button"
+                      onClick={() => setEnergyLevel(lvl)}
+                      className={`py-2 px-3 text-xs font-medium rounded-xl border capitalize transition-all ${
+                        energyLevel === lvl
+                          ? 'bg-sage-600 border-sage-600 text-white shadow-sm'
+                          : 'bg-earth-50 dark:bg-forest-800/60 border-earth-200 dark:border-forest-700 text-earth-700 dark:text-sage-300 hover:border-sage-400'
+                      }`}
+                    >
+                      {lvl}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-earth-700 dark:text-sage-300 mb-1.5">
+                  Emotion Tags
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {['calm', 'grateful', 'focused', 'energized', 'anxious', 'tired', 'reflective', 'hopeful', 'stressed'].map((tag) => {
+                    const selected = moodTags.includes(tag);
+                    return (
+                      <button
+                        key={tag}
+                        type="button"
+                        onClick={() => {
+                          if (selected) setMoodTags(moodTags.filter((t) => t !== tag));
+                          else setMoodTags([...moodTags, tag]);
+                        }}
+                        className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                          selected
+                            ? 'bg-sage-100 dark:bg-forest-800 border-sage-500 text-sage-800 dark:text-sage-200 font-medium'
+                            : 'bg-white dark:bg-forest-900 border-earth-200 dark:border-forest-800 text-earth-600 dark:text-sage-400 hover:border-earth-400'
+                        }`}
+                      >
+                        {tag}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-earth-700 dark:text-sage-300 mb-1">
+                  Notes / Context (Optional)
+                </label>
+                <textarea
+                  value={moodNote}
+                  onChange={(e) => setMoodNote(e.target.value)}
+                  placeholder="What's on your mind?"
+                  rows={2}
+                  className="w-full text-xs p-2.5 rounded-xl border border-earth-300 dark:border-forest-700 bg-white dark:bg-forest-950 text-forest-950 dark:text-sage-100 focus:outline-none focus:ring-1 focus:ring-sage-500 resize-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-earth-200 dark:border-forest-800">
+                <button
+                  type="button"
+                  onClick={() => setShowMoodModal(false)}
+                  className="px-4 py-2 text-xs font-medium text-earth-700 dark:text-sage-300 hover:bg-earth-100 dark:hover:bg-forest-800 rounded-xl transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingMood}
+                  className="px-4 py-2 text-xs font-semibold text-white bg-sage-600 hover:bg-sage-700 rounded-xl transition-colors shadow-sm disabled:opacity-50"
+                >
+                  {submittingMood ? 'Recording...' : 'Save Mood Pulse'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

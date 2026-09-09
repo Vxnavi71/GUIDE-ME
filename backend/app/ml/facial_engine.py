@@ -23,6 +23,15 @@ class FacialAnalysisEngine:
     """
 
     MODEL_VERSION = "v1.2.0-haar-landmark-proxy"
+    _face_cascade = None
+    _alt2_cascade = None
+
+    @classmethod
+    def _get_cascades(cls):
+        if cls._face_cascade is None and OPENCV_AVAILABLE:
+            cls._face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
+            cls._alt2_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_alt2.xml")
+        return cls._face_cascade, cls._alt2_cascade
 
     @classmethod
     def analyze_frame_base64(cls, base64_image_str: str) -> Dict[str, Any]:
@@ -53,27 +62,30 @@ class FacialAnalysisEngine:
         try:
             gray = cv2.cvtColor(np_img, cv2.COLOR_RGB2GRAY)
             
-            # luminance validation
+            # luminance and contrast validation
             luminance = float(np.mean(gray))
             contrast = float(np.std(gray))
             lum_norm = min(1.0, luminance / 128.0 if luminance < 128.0 else (255.0 - luminance) / 128.0)
             cont_norm = min(1.0, contrast / 64.0)
             frame_quality = round((lum_norm + cont_norm) / 2.0, 2)
             
-            if luminance < 40.0:
+            if luminance < 25.0:
                 return cls._fallback_response("Frame too dark", status="low_light", frame_quality=frame_quality)
             
-            face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
-            faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=4, minSize=(40, 40))
+            # Enhance contrast for reliable face landmark detection across lighting conditions
+            equalized = cv2.equalizeHist(gray)
+            face_cascade, alt2_cascade = cls._get_cascades()
 
-            if len(faces) == 0:
-                # Try with slightly more sensitive scaleFactor
-                faces = face_cascade.detectMultiScale(gray, scaleFactor=1.05, minNeighbors=3, minSize=(30, 30))
-                
-            if len(faces) == 0:
-                # Fallback to alt2 cascade
-                alt2_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_alt2.xml")
-                faces = alt2_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=4, minSize=(40, 40))
+            faces = ()
+            if face_cascade is not None:
+                faces = face_cascade.detectMultiScale(equalized, scaleFactor=1.1, minNeighbors=4, minSize=(35, 35))
+                if len(faces) == 0:
+                    faces = face_cascade.detectMultiScale(gray, scaleFactor=1.08, minNeighbors=3, minSize=(30, 30))
+
+            if len(faces) == 0 and alt2_cascade is not None:
+                faces = alt2_cascade.detectMultiScale(equalized, scaleFactor=1.1, minNeighbors=3, minSize=(30, 30))
+                if len(faces) == 0:
+                    faces = alt2_cascade.detectMultiScale(gray, scaleFactor=1.08, minNeighbors=3, minSize=(30, 30))
 
             face_count = len(faces)
             if face_count == 0:

@@ -48,6 +48,8 @@ class MockLLMProvider(BaseLLMProvider):
             "gratitude": ["thank", "grateful", "appreciate", "blessed", "glad"],
             "frustration": ["angry", "mad", "furious", "frustrated", "annoyed", "unfair", "hate"],
             "anxiety": ["anxious", "anxiety", "panic", "overwhelmed", "freaking out", "racing heart"],
+            "study_academics": ["exam", "exams", "test", "finals", "midterm", "studying", "study", "syllabus", "homework", "assignment", "revision"],
+            "progress_update": ["studied", "hours", "hour", "completed", "finished", "worked on", "spent time", "made progress"],
             "general_question": ["what", "how", "why", "when", "can you", "help"],
             "small_talk": ["weather", "how are you", "what's up", "doing well"]
         }
@@ -174,15 +176,29 @@ class MockLLMProvider(BaseLLMProvider):
                         })
                     break
 
-        # 3. Inspect Previous Turn for Conversational Coherence
+        # 3. Inspect Previous Turns for Conversational Coherence & Topic Tracking
         last_asst_msg = ""
         recent_history = conversation_history[-6:] if len(conversation_history) > 6 else conversation_history
         turn_count = len(conversation_history)
         
-        for past in reversed(recent_history):
-            if past.get("role") == "assistant":
-                last_asst_msg = past.get("content", "").lower()
-                break
+        # Track topics mentioned by the user in recent history
+        prior_user_topics = set()
+        for past in recent_history:
+            past_content = past.get("content", "").lower()
+            role = past.get("role", "")
+            if role in ["user", "human"]:
+                if any(k in past_content for k in ["exam", "exams", "test", "finals", "midterm", "studying", "study", "syllabus", "assignment", "homework"]):
+                    prior_user_topics.add("academics")
+                if any(k in past_content for k in ["job", "work", "boss", "interview", "career", "office", "deadline", "project"]):
+                    prior_user_topics.add("work")
+                if any(k in past_content for k in ["sleep", "tired", "insomnia", "exhausted", "rest", "drained"]):
+                    prior_user_topics.add("sleep")
+                if any(k in past_content for k in ["stress", "anxious", "anxiety", "panic", "overwhelm", "pressure"]):
+                    prior_user_topics.add("stress")
+                if any(k in past_content for k in ["friend", "partner", "relationship", "family", "argument"]):
+                    prior_user_topics.add("relationship")
+            elif role in ["assistant", "model"] and not last_asst_msg:
+                last_asst_msg = past_content
 
         # Conversation phase tracking
         phase_prefix = ""
@@ -203,6 +219,34 @@ class MockLLMProvider(BaseLLMProvider):
         # Basic Crisis Check
         if any(w in msg_lower for w in ["suicide", "kill myself", "want to die", "end it all"]):
             return f"I hear how much pain you are in, {user_name}. Please know you are not alone. Please reach out to Indian crisis helplines immediately: Tele-MANAS (14416) or KIRAN (1800-599-0019).", extracted_memories
+
+        # Detect cross-turn follow-ups (e.g. user previously discussed exams, now says 'I studied for three hours today')
+        is_effort_or_duration = any(k in msg_lower for k in ["studied", "hours", "hour", "minutes", "worked", "completed", "did", "spent", "finished", "revised", "read"])
+        
+        if "academics" in prior_user_topics and (is_effort_or_duration or intent in ["progress_update", "study_academics"]):
+            contextual_responses = [
+                f"Putting in that focused study time towards your exams is solid, meaningful progress, {user_name}. Moving through exam stress one block at a time is exactly how you regain control. How is your head feeling now—ready for a brief break?",
+                f"Dedicated effort like that makes a tangible difference with exam preparation, {user_name}. Give yourself credit for sitting down and doing the work today. Do you feel a bit lighter now that you've put those hours in?",
+                f"That's serious dedication to your studies, {user_name}. Remember that your brain needs time to absorb and rest after intense focus. How are your energy levels holding up?",
+            ]
+            selected = contextual_responses[turn_count % len(contextual_responses)]
+            return f"{selected}", extracted_memories
+
+        if "work" in prior_user_topics and (is_effort_or_duration or intent == "progress_update"):
+            contextual_responses = [
+                f"Making tangible progress on your workplace tasks is a solid step forward, {user_name}. How is the pressure feeling now compared to earlier?",
+                f"Gaining ground on work demands helps ease the weight of deadlines, {user_name}. Remember to step back and take a breath.",
+            ]
+            selected = contextual_responses[turn_count % len(contextual_responses)]
+            return f"{selected}", extracted_memories
+
+        if "stress" in prior_user_topics and is_effort_or_duration:
+            contextual_responses = [
+                f"Taking concrete action is one of the most effective ways to counteract feeling overwhelmed, {user_name}. Does having done that help take some of the edge off your stress?",
+                f"That effort is a great step forward, {user_name}. Even small blocks of dedicated time help quiet the mental noise. How are you feeling right now?",
+            ]
+            selected = contextual_responses[turn_count % len(contextual_responses)]
+            return f"{selected}", extracted_memories
 
         responses = {
             "greeting": [
@@ -228,6 +272,18 @@ class MockLLMProvider(BaseLLMProvider):
                 f"Stress can be overwhelming, {user_name}. Can we break down what's on your plate today?",
                 f"I hear how stressed you are, {user_name}. Remember to breathe.",
                 f"When demands pile up, {user_name}, it's okay to step back. What can be safely pushed to tomorrow?"
+            ],
+            "study_academics": [
+                f"Exams and academic demands can create intense cognitive pressure, {user_name}. Breaking your prep into 25-minute focused blocks can make the syllabus much more manageable.",
+                f"Academic stress is very real, {user_name}. Remember to focus on understanding one concept at a time rather than worrying about the entire mountain.",
+                f"I hear how much your studies are weighing on you, {user_name}. What is the single most important topic to look at next?",
+                f"Studying under pressure takes real mental stamina, {user_name}. Protect your sleep—rest is where your brain consolidates memory."
+            ],
+            "progress_update": [
+                f"That's tangible, real progress, {user_name}! Acknowledging what you accomplished today builds momentum. How do you feel having put that time in?",
+                f"Solid effort, {user_name}. Focusing on the process rather than the outcome helps keep stress in check. How is your energy holding up?",
+                f"Great job putting in that work today, {user_name}. Be sure to step away and give your mind a well-deserved rest.",
+                f"Every block of focused time adds up, {user_name}. How does it feel now compared to before you started?"
             ],
             "goal_discussion": [
                 f"That's a great focus, {user_name}.{goals_ref} How can we break that down into smaller steps?",

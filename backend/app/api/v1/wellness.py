@@ -265,9 +265,9 @@ async def get_dashboard_summary(
         user_name = current_user.email.split("@")[0]
 
     # 2. Mood
-    recent_moods = await mood_repo.list_moods(current_user.id, limit=7)
+    recent_moods = await mood_repo.list_moods(current_user.id, limit=30)
     if recent_moods:
-        latest_mood = recent_moods[0].score
+        latest_mood = round(recent_moods[0].score, 1)
         if latest_mood >= 7.0:
             mood_label = "Optimal emotional valence"
         elif latest_mood >= 5.0:
@@ -321,9 +321,15 @@ async def get_dashboard_summary(
 
     # 7. 7-Day Trend Chart - Real points with null for unrecorded days
     days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-    mood_by_date = {m.recorded_at.strftime("%Y-%m-%d"): m.score for m in recent_moods}
-    stress_obs = await mood_repo.list_recent_stress_observations(current_user.id, limit=7)
-    stress_by_date = {s.recorded_at.strftime("%Y-%m-%d"): s.score for s in stress_obs if s.score is not None}
+    mood_by_date = {}
+    for m in reversed(recent_moods):
+        mood_by_date[m.recorded_at.strftime("%Y-%m-%d")] = m.score
+
+    stress_obs = await mood_repo.list_recent_stress_observations(current_user.id, limit=30)
+    stress_by_date = {}
+    for s in reversed(stress_obs):
+        if s.score is not None:
+            stress_by_date[s.recorded_at.strftime("%Y-%m-%d")] = s.score
 
     trends_7d: List[DashboardTrendPoint] = []
     for i in range(6, -1, -1):

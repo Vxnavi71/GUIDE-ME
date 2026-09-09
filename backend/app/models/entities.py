@@ -274,7 +274,7 @@ class Conversation(Base):
     updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
 
     user = orm_relationship("User", back_populates="conversations")
-    messages = orm_relationship("ConversationMessage", back_populates="conversation", cascade="all, delete-orphan")
+    messages = orm_relationship("ConversationMessage", back_populates="conversation", cascade="all, delete-orphan", order_by="ConversationMessage.created_at")
 
 
 class ConversationMessage(Base):
